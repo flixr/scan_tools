@@ -50,7 +50,8 @@ LaserHeightEstimation::LaserHeightEstimation()
 
   // **** publishers
 
-  heightPublisher_ = nh_private.advertise<asctec_msgs::Height>(heightTopic_, 10);
+  //heightPublisher_ = nh_private.advertise<asctec_msgs::Height>(heightTopic_, 10);
+  heightPublisher_ = nh_private.advertise<std_msgs::Float64>(heightTopic_, 10);
 
   if (useKF_)
     timer_ = nh_private.createTimer(ros::Duration(1.0/20.0), &LaserHeightEstimation::spin, this);
@@ -133,7 +134,7 @@ void LaserHeightEstimation::pHeightCallback (const asctec_msgs::Height& heightMs
     stateMsg.header = heightMsg.header;
     stateMsg.height = state(1);
 
-    heightPublisher_.publish(stateMsg);
+    //heightPublisher_.publish(stateMsg);
 
     filterMutex_.unlock();
   }
@@ -174,6 +175,7 @@ void LaserHeightEstimation::spin(const ros::TimerEvent& e)
   filter_->Update(&sys_model, input);
   filterMutex_.unlock();
 }
+
 void LaserHeightEstimation::scanCallback(const sensor_msgs::LaserScanConstPtr& scan)
 {
   if (!initialized_)
@@ -295,7 +297,10 @@ void LaserHeightEstimation::scanCallback(const sensor_msgs::LaserScanConstPtr& s
 
   // **** publish height message
 
-  heightPublisher_.publish(stateMsg);
+  //heightPublisher_.publish(stateMsg);
+  std_msgs::Float64 height_msg;
+  height_msg.data = state(1);
+  heightPublisher_.publish(height_msg);
 }
 
 bool LaserHeightEstimation::setBaseToLaserTf(const sensor_msgs::LaserScanConstPtr& scan)

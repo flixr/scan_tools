@@ -11,6 +11,7 @@
 #include <message_filters/subscriber.h>
 #include <boost/thread/mutex.hpp>
 #include <asctec_msgs/Height.h>
+#include <std_msgs/Float64.h>
 
 // bfl
 #include <filter/extendedkalmanfilter.h>
