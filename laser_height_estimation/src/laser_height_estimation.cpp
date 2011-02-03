@@ -299,7 +299,7 @@ void LaserHeightEstimation::scanCallback(const sensor_msgs::LaserScanConstPtr& s
 
   //heightPublisher_.publish(stateMsg);
   std_msgs::Float64 height_msg;
-  height_msg.data = state(1);
+  height_msg.data = stateMsg.height;
   heightPublisher_.publish(height_msg);
 }
 
