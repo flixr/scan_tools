@@ -4,83 +4,60 @@
 #include <ros/ros.h>
 #include <sensor_msgs/LaserScan.h>
 #include <sensor_msgs/Imu.h>
-#include <geometry_msgs/PoseWithCovarianceStamped.h>
+
 #include <tf/transform_datatypes.h>
 #include <tf/transform_listener.h>
-#include <tf/message_filter.h>
-#include <message_filters/subscriber.h>
+
 #include <boost/thread/mutex.hpp>
-#include <asctec_msgs/Height.h>
+
 #include <std_msgs/Float64.h>
 
-// bfl
-#include <filter/extendedkalmanfilter.h>
-#include <model/linearanalyticsystemmodel_gaussianuncertainty.h>
-#include <model/linearanalyticmeasurementmodel_gaussianuncertainty.h>
-#include <pdf/analyticconditionalgaussian.h>
-#include <pdf/linearanalyticconditionalgaussian.h>
-
-const std::string pHeightTopic_ = "pressure_height";
-const std::string scanTopic_    = "scan";
-const std::string heightTopic_  = "height";
-
-const double tfTolerance_ = 0.10;
+const std::string scan_topic_                = "scan";
+const std::string height_to_base_topic_      = "height";
+const std::string height_to_footprint_topic_ = "height_to_footprint";
+const std::string imu_topic_                 = "imu";
 
 class LaserHeightEstimation
 {
-	private:
+  private:
 
     bool initialized_;
-    ros::Timer timer_;
-    bool useKF_;
 
-    boost::mutex filterMutex_;
-    BFL::ExtendedKalmanFilter* filter_;
+    double floor_height_;
+    double prev_height_;
 
-    bool heightInitialized_;
-    asctec_msgs::Height lastHeightMsg_;
-    double floorHeight_;
-    double prevHeight_;
-    double initialHeight_;
+    btTransform base_to_laser_;
+    btTransform base_to_footprint_;
+    btTransform imu_transform_;
+   
+    tf::TransformListener tf_listener_;
 
-    btTransform baseToLaser_;
-
-    message_filters::Subscriber<sensor_msgs::LaserScan>* scanFilterSub_;
-    tf::MessageFilter<sensor_msgs::LaserScan>* scanFilter_;
-
-    tf::TransformListener tfListener_;
-    geometry_msgs::PoseWithCovarianceStamped poseMsg_;
+    std_msgs::Float64Ptr height_to_base_msg_;
+    std_msgs::Float64Ptr height_to_footprint_msg_;
 
     // **** parameters
   
-    std::string baseFrame_;
-    std::string worldFrame_;
-    int minValues_;
-    double maxStdev_;
-    double maxHeightJump_;
+    std::string base_frame_;
+    std::string footprint_frame_;
+    int min_values_;
+    double max_stdev_;
+    double max_height_jump_;
 
-		// **** publishers & subscirbers
+    // **** publishers & subscirbers
 
-    ros::Subscriber imuSubscriber_;
-    ros::Subscriber scanSubscriber_;
-    ros::Subscriber pHeightSubscriber_;
-		ros::Publisher  heightPublisher_;
+    ros::Subscriber imu_subscriber_;
+    ros::Subscriber scan_subscriber_;
+    ros::Publisher  height_to_base_publisher_;
+    ros::Publisher  height_to_footprint_publisher_;
 
-    void initializeFilter();
-
-		void scanCallback    (const sensor_msgs::LaserScanConstPtr& scan);
-    void pHeightCallback (const asctec_msgs::Height& heightMsg);
+    void scanCallback (const sensor_msgs::LaserScanPtr& scan_msg);
+    void imuCallback  (const sensor_msgs::ImuPtr&       imu_msg);
     
-    bool setBaseToLaserTf(const sensor_msgs::LaserScanConstPtr& scan);
+    bool setBaseToLaserTf(const sensor_msgs::LaserScanPtr& scan_msg);
 
     void getStats(const std::vector<double> values, double& ave, double& stdev);
 
-    bool getWorldToBaseTf(const sensor_msgs::LaserScanConstPtr& scan,
-                                btTransform& worldToLaser);
-
-    void spin(const ros::TimerEvent& e);
-
-	public:
+  public:
   
     LaserHeightEstimation();
     virtual ~LaserHeightEstimation();
