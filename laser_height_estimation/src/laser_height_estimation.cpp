@@ -142,16 +142,18 @@ void LaserHeightEstimation::scanCallback (const sensor_msgs::LaserScanPtr& scan_
 
 bool LaserHeightEstimation::setBaseToLaserTf(const sensor_msgs::LaserScanPtr& scan_msg)
 {
+  ros::Time time = scan_msg->header.stamp;
+
   // **** get transform base to laser
 
   tf::StampedTransform base_to_laser_tf;
   try
   {
     tf_listener_.waitForTransform(
-      base_frame_, scan_msg->header.frame_id, scan_msg->header.stamp, ros::Duration(3.0));
+      base_frame_, scan_msg->header.frame_id, time, ros::Duration(3.0));
 
     tf_listener_.lookupTransform (
-      base_frame_, scan_msg->header.frame_id, scan_msg->header.stamp, base_to_laser_tf);
+      base_frame_, scan_msg->header.frame_id, time, base_to_laser_tf);
   }
   catch (tf::TransformException ex)
   {
@@ -168,10 +170,10 @@ bool LaserHeightEstimation::setBaseToLaserTf(const sensor_msgs::LaserScanPtr& sc
   try
   {
     tf_listener_.waitForTransform(
-      base_frame_, footprint_frame_, ros::Time::now(), ros::Duration(3.0));
+      base_frame_, footprint_frame_, time, ros::Duration(3.0));
 
     tf_listener_.lookupTransform (
-      base_frame_, footprint_frame_, ros::Time::now(), base_to_footprint_tf);
+      base_frame_, footprint_frame_, time, base_to_footprint_tf);
   }
   catch (tf::TransformException ex)
   {
