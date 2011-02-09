@@ -62,6 +62,14 @@ void LaserHeightEstimation::imuCallback (const sensor_msgs::ImuPtr& imu_msg)
     btQuaternion(imu_msg->orientation.x, imu_msg->orientation.y,
                  imu_msg->orientation.z, imu_msg->orientation.w));
   
+  double roll, pitch, yaw;
+  btMatrix3x3 m(btQuaternion(
+    imu_msg->orientation.x, imu_msg->orientation.y,
+    imu_msg->orientation.z, imu_msg->orientation.w)));
+
+  m.getRPY(roll, pitch, yaw);
+  ROS_INFO("R, P, Y: %f, %f, %f", 
+    roll * 180.0/3.14159, pitch * 180.0/3.14159, yaw * 180.0/3.14159);
 }
 
 void LaserHeightEstimation::scanCallback (const sensor_msgs::LaserScanPtr& scan_msg)
