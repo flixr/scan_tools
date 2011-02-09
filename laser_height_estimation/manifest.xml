@@ -12,10 +12,13 @@
   <depend package="roscpp"/>
   <depend package="sensor_msgs"/>
   <depend package="std_msgs"/>
-  <depend package="asctec_msgs"/>
-  <depend package="geometry_msgs"/>
-  <depend package="bfl" />
   <depend package="bullet"/>
+  <depend package="nodelet"/>
+
+  <export>
+    <nodelet plugin="${prefix}/laser_height_estimation_nodelet.xml" />
+  </export>
+
 </package>
 
 

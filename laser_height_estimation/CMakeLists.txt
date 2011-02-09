@@ -7,22 +7,23 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 #  Release        : w/o debug symbols, w/ optimization
 #  RelWithDebInfo : w/ debug symbols, w/ optimization
 #  MinSizeRel     : w/o debug symbols, w/ optimization, stripped binaries
-#set(ROS_BUILD_TYPE RelWithDebInfo)
+set(ROS_BUILD_TYPE RelWithDebInfo)
 
 rosbuild_init()
 
-#set the default path for built executables to the "bin" directory
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
-#set the default path for built libraries to the "lib" directory
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
-#uncomment if you have defined messages
-#rosbuild_genmsg()
-#uncomment if you have defined services
-#rosbuild_gensrv()
+# create laser_height_estimation library
 
-set(LASER_HEIGHT_ESTIMATION      laser_height_estimation)
+rosbuild_add_library (laser_height_estimation src/laser_height_estimation.cpp)
 
-set(LASER_HEIGHT_ESTIMATION_SRC  src/laser_height_estimation.cpp)
+# create laser_height_estimation_nodelet library
 
-rosbuild_add_executable(${LASER_HEIGHT_ESTIMATION} ${LASER_HEIGHT_ESTIMATION_SRC})
+rosbuild_add_library (laser_height_estimation_nodelet src/laser_height_estimation_nodelet.cpp)
+target_link_libraries (laser_height_estimation_nodelet laser_height_estimation)
+
+# create laser_height_estimation executable
+
+rosbuild_add_executable(laser_height_estimation_node src/laser_height_estimation_node.cpp)
+target_link_libraries (laser_height_estimation_node laser_height_estimation)

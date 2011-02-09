@@ -1,14 +1,8 @@
 #include "laser_height_estimation/laser_height_estimation.h"
 
-int main(int argc, char** argv)
-{
-  ros::init(argc, argv, "laser_height_estimation");
-  LaserHeightEstimation laser_height_estimation;
-  ros::spin();
-  return 0;
-}
-
-LaserHeightEstimation::LaserHeightEstimation()
+LaserHeightEstimation::LaserHeightEstimation(ros::NodeHandle nh, ros::NodeHandle nh_private):
+  nh_(nh), 
+  nh_private_(nh_private)
 {
   ROS_INFO("Starting LaserHeightEstimation"); 
 
@@ -19,35 +13,32 @@ LaserHeightEstimation::LaserHeightEstimation()
   height_to_base_msg_      = boost::make_shared<std_msgs::Float64>();
   height_to_footprint_msg_ = boost::make_shared<std_msgs::Float64>();
 
-  ros::NodeHandle nh;
-  ros::NodeHandle nh_private("~");
-
   // **** parameters
   
-  if (!nh_private.getParam ("base_frame", base_frame_))
+  if (!nh_private_.getParam ("base_frame", base_frame_))
     base_frame_ = "base_link";
-  if (!nh_private.getParam ("footprint_frame", footprint_frame_))
+  if (!nh_private_.getParam ("footprint_frame", footprint_frame_))
     footprint_frame_ = "base_footprint";
-  if (!nh_private.getParam ("min_values", min_values_))
+  if (!nh_private_.getParam ("min_values", min_values_))
     min_values_ = 5;
-  if (!nh_private.getParam ("max_stdev", max_stdev_))
+  if (!nh_private_.getParam ("max_stdev", max_stdev_))
     max_stdev_ = 0.10;
-  if (!nh_private.getParam ("max_height_jump", max_height_jump_))
+  if (!nh_private_.getParam ("max_height_jump", max_height_jump_))
     max_height_jump_ = 0.25;
   
   // **** subscribers
 
-  scan_subscriber_ = nh.subscribe(
+  scan_subscriber_ = nh_.subscribe(
     scan_topic_, 5, &LaserHeightEstimation::scanCallback, this);
-  imu_subscriber_ = nh.subscribe(
+  imu_subscriber_ = nh_.subscribe(
     imu_topic_, 5, &LaserHeightEstimation::imuCallback, this);
 
   // **** publishers
 
-  height_to_base_publisher_ = nh.advertise<std_msgs::Float64>(
+  height_to_base_publisher_ = nh_.advertise<std_msgs::Float64>(
     height_to_base_topic_, 5);
 
-  height_to_footprint_publisher_ = nh.advertise<std_msgs::Float64>(
+  height_to_footprint_publisher_ = nh_.advertise<std_msgs::Float64>(
     height_to_footprint_topic_, 5);
 }
 

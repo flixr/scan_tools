@@ -21,8 +21,19 @@ class LaserHeightEstimation
 {
   private:
 
-    bool initialized_;
+    // **** ros-related variables
 
+    ros::NodeHandle nh_;
+    ros::NodeHandle nh_private_;
+    ros::Subscriber imu_subscriber_;
+    ros::Subscriber scan_subscriber_;
+    ros::Publisher  height_to_base_publisher_;
+    ros::Publisher  height_to_footprint_publisher_;
+    tf::TransformListener tf_listener_;
+
+    // **** state variables
+
+    bool initialized_;
     double floor_height_;
     double prev_height_;
 
@@ -30,8 +41,6 @@ class LaserHeightEstimation
     btTransform base_to_footprint_;
     btTransform imu_transform_;
    
-    tf::TransformListener tf_listener_;
-
     std_msgs::Float64Ptr height_to_base_msg_;
     std_msgs::Float64Ptr height_to_footprint_msg_;
 
@@ -43,23 +52,16 @@ class LaserHeightEstimation
     double max_stdev_;
     double max_height_jump_;
 
-    // **** publishers & subscirbers
-
-    ros::Subscriber imu_subscriber_;
-    ros::Subscriber scan_subscriber_;
-    ros::Publisher  height_to_base_publisher_;
-    ros::Publisher  height_to_footprint_publisher_;
+    // **** member functions
 
     void scanCallback (const sensor_msgs::LaserScanPtr& scan_msg);
     void imuCallback  (const sensor_msgs::ImuPtr&       imu_msg);
-    
     bool setBaseToLaserTf(const sensor_msgs::LaserScanPtr& scan_msg);
-
     void getStats(const std::vector<double> values, double& ave, double& stdev);
 
   public:
   
-    LaserHeightEstimation();
+    LaserHeightEstimation(ros::NodeHandle nh, ros::NodeHandle nh_private);
     virtual ~LaserHeightEstimation();
 };
 
