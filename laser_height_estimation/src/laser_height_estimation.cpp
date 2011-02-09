@@ -40,7 +40,7 @@ LaserHeightEstimation::LaserHeightEstimation()
   scan_subscriber_ = nh.subscribe(
     scan_topic_, 5, &LaserHeightEstimation::scanCallback, this);
   imu_subscriber_ = nh.subscribe(
-    imu_topic_, 5, &LaserHeightEstimation::scanCallback, this);
+    imu_topic_, 5, &LaserHeightEstimation::imuCallback, this);
 
   // **** publishers
 
