@@ -106,6 +106,8 @@ void LaserHeightEstimation::scanCallback (const sensor_msgs::LaserScanPtr& scan_
   double mean_value, stdev_value;
   getStats(values, mean_value, stdev_value);
 
+  ROS_INFO("Value: %f", mean_value);
+
   if (stdev_value > max_stdev_)
   {
     ROS_WARN("Stdev of height readings too big to determine height, skipping (stdev is %f, max is %f)",
