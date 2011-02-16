@@ -13,7 +13,7 @@
 #include <std_msgs/Float64.h>
 
 const std::string scan_topic_                = "scan";
-const std::string height_to_base_topic_      = "height";
+const std::string height_to_base_topic_      = "height_to_base";
 const std::string height_to_footprint_topic_ = "height_to_footprint";
 const std::string imu_topic_                 = "imu";
 
