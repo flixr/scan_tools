@@ -21,123 +21,114 @@
 
 #include "laser_scan_splitter/laser_scan_splitter.h"
 
-int main (int argc, char **argv)
-{
-  ros::init (argc, argv, "laser_scan_splitter");
-  LaserScanSplitter laserScanSplitter;
-  ros::spin ();
-  return 0;
-}
-
-LaserScanSplitter::LaserScanSplitter ()
+LaserScanSplitter::LaserScanSplitter(ros::NodeHandle nh, ros::NodeHandle nh_private):
+  nh_(nh), 
+  nh_private_(nh_private)
 {
   ROS_INFO ("Starting LaserScanSplitter");
 
-  ros::NodeHandle nh;
-  ros::NodeHandle nh_private ("~");
-
   // **** get paramters
 
-  std::string sizesString;
-  std::string framesString;
-  std::string topicsString;
+  std::string topics_string;
+  std::string frames_string;
+  std::string sizes_string;
 
-  if (!nh_private.getParam ("topics", topicsString))
-    topicsString = "scan1 scan2";
-  if (!nh_private.getParam ("frames", framesString))
-    framesString = "laser laser";
-  if (!nh_private.getParam ("sizes", sizesString))
-    sizesString = "256 256";
+  if (!nh_private_.getParam ("topics", topics_string))
+    topics_string = "scan1 scan2";
+  if (!nh_private_.getParam ("frames", frames_string))
+    frames_string = "laser laser";
+  if (!nh_private_.getParam ("sizes", sizes_string))
+    sizes_string = "256 256";
 
   // **** tokenize inputs
-  tokenize (topicsString, publishedScanTopics_);
-  tokenize (framesString, publishedLaserFrames_);
+  tokenize (topics_string, published_scan_topics_);
+  tokenize (frames_string, published_laser_frames_);
 
-  std::vector < std::string > sizesTokens;
-  tokenize (sizesString, sizesTokens);
+  std::vector<std::string> sizes_tokens;
+  tokenize (sizes_string, sizes_tokens);
 
-  sizeSum_ = 0;
-  for (unsigned int i = 0; i < sizesTokens.size (); i++)
+  size_sum_ = 0;
+  for (unsigned int i = 0; i < sizes_tokens.size (); i++)
   {
-    sizes_.push_back (atoi (sizesTokens[i].c_str ()));
-    sizeSum_ += sizes_[i];
+    sizes_.push_back (atoi (sizes_tokens[i].c_str ()));
+    size_sum_ += sizes_[i];
 
     ROS_ASSERT_MSG ((sizes_[i] > 0), "LaserScanSplitter: Scan size cannot be zero. Quitting.");
   }
 
   // **** check that topic, frames, and sizes vectors have same sizes
 
-  ROS_ASSERT_MSG ((publishedScanTopics_.size () == publishedLaserFrames_.size ()) &&
-                  (sizes_.size () == publishedLaserFrames_.size ()),
+  ROS_ASSERT_MSG ((published_scan_topics_.size () == published_laser_frames_.size ()) &&
+                  (sizes_.size () == published_laser_frames_.size ()),
                   "LaserScanSplitter: Invalid parameters. Quitting.");
 
   // **** subscribe to laser scan messages
-  scanSubscriber_ = nh.subscribe (scanTopic_, 100, &LaserScanSplitter::scanCallback, this);
+  scan_subscriber_ = nh_.subscribe (scan_topic_, 100, &LaserScanSplitter::scanCallback, this);
 
   // **** advertise topics
-  for (unsigned int i = 0; i < publishedScanTopics_.size (); i++)
+  for (unsigned int i = 0; i < published_scan_topics_.size (); i++)
   {
-    scanPublishers_.push_back (ros::Publisher ());
-    scanPublishers_[i] = nh_private.advertise < sensor_msgs::LaserScan > (publishedScanTopics_[i], 10);
+    scan_publishers_.push_back (ros::Publisher ());
+    scan_publishers_[i] = 
+      nh_.advertise<sensor_msgs::LaserScan>(published_scan_topics_[i], 10);
   }
 }
 
 LaserScanSplitter::~LaserScanSplitter ()
 {
-
+  ROS_INFO ("Destroying LaserScanSplitter");
 }
 
-void LaserScanSplitter::scanCallback (const sensor_msgs::LaserScanConstPtr & scan)
+void LaserScanSplitter::scanCallback (const sensor_msgs::LaserScanConstPtr & scan_msg)
 {
-
   // **** check for scan size
-
-  if (sizeSum_ != scan->ranges.size ())
+  if (size_sum_ != scan_msg->ranges.size ())
   {
-    ROS_WARN ("LaserScanSplitter: Received a laser scan with size (%d) incompatible to input parameters. Skipping scan.", scan->ranges.size());
+    ROS_WARN ("LaserScanSplitter: Received a laser scan with size (%d) \
+      incompatible to input parameters. Skipping scan.", scan_msg->ranges.size());
     return;
   }
 
   // **** copy information over
   int r = 0;
 
-  for (unsigned int i = 0; i < publishedScanTopics_.size (); i++)
+  for (unsigned int i = 0; i < published_scan_topics_.size (); i++)
   {
-    sensor_msgs::LaserScan scanSegment;
+    sensor_msgs::LaserScan scan_segment;
 
-    scanSegment.header = scan->header;
-    scanSegment.range_min = scan->range_min;
-    scanSegment.range_max = scan->range_max;
-    scanSegment.angle_increment = scan->angle_increment;
-    scanSegment.time_increment = scan->time_increment;
-    scanSegment.scan_time = scan->scan_time;
-    scanSegment.header.frame_id = publishedLaserFrames_[i];
+    scan_segment.header = scan_msg->header;
+    scan_segment.range_min = scan_msg->range_min;
+    scan_segment.range_max = scan_msg->range_max;
+    scan_segment.angle_increment = scan_msg->angle_increment;
+    scan_segment.time_increment = scan_msg->time_increment;
+    scan_segment.scan_time = scan_msg->scan_time;
+    scan_segment.header.frame_id = published_laser_frames_[i];
 
-    scanSegment.angle_min = scan->angle_min + (scan->angle_increment * r);
-    scanSegment.angle_max = scan->angle_min + (scan->angle_increment * (r + sizes_[i] - 1));
+    scan_segment.angle_min = 
+      scan_msg->angle_min + (scan_msg->angle_increment * r);
+    scan_segment.angle_max = 
+      scan_msg->angle_min + (scan_msg->angle_increment * (r + sizes_[i] - 1));
 
     // TODO - also copy intensity values
 
-    for (int ii = 0; ii < sizes_[i]; ii++)
-    {
-      scanSegment.ranges.push_back (scan->ranges[r]);
-      r++;
-    }
+    scan_segment.ranges.resize(sizes_[i]);
+    memcpy(&scan_segment.ranges[0], &scan_msg->ranges[r], sizes_[i]*4);
+    r+=sizes_[i];
 
-    scanPublishers_[i].publish (scanSegment);
+    scan_publishers_[i].publish (scan_segment);
   }
 }
 
 void LaserScanSplitter::tokenize (const std::string & str, std::vector < std::string > &tokens)
 {
-  std::string::size_type lastPos = str.find_first_not_of (" ", 0);
-  std::string::size_type pos = str.find_first_of (" ", lastPos);
+  std::string::size_type last_pos = str.find_first_not_of (" ", 0);
+  std::string::size_type pos = str.find_first_of (" ", last_pos);
 
-  while (std::string::npos != pos || std::string::npos != lastPos)
+  while (std::string::npos != pos || std::string::npos != last_pos)
   {
-    std::string stringToken = str.substr (lastPos, pos - lastPos);
-    tokens.push_back (stringToken);
-    lastPos = str.find_first_not_of (" ", pos);
-    pos = str.find_first_of (" ", lastPos);
+    std::string string_token = str.substr (last_pos, pos - last_pos);
+    tokens.push_back (string_token);
+    last_pos = str.find_first_not_of (" ", pos);
+    pos = str.find_first_of (" ", last_pos);
   }
 }

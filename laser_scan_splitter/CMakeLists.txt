@@ -7,22 +7,23 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 #  Release        : w/o debug symbols, w/ optimization
 #  RelWithDebInfo : w/ debug symbols, w/ optimization
 #  MinSizeRel     : w/o debug symbols, w/ optimization, stripped binaries
-#set(ROS_BUILD_TYPE RelWithDebInfo)
+set(ROS_BUILD_TYPE RelWithDebInfo)
 
 rosbuild_init()
 
-#set the default path for built executables to the "bin" directory
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
-#set the default path for built libraries to the "lib" directory
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
-#uncomment if you have defined messages
-#rosbuild_genmsg()
-#uncomment if you have defined services
-#rosbuild_gensrv()
+# create laser_scan_splitter library
 
-set(LASER_SCAN_SPLITTER     laser_scan_splitter)
+rosbuild_add_library (laser_scan_splitter src/laser_scan_splitter.cpp)
 
-set(LASER_SCAN_SPLITTER_SRC src/laser_scan_splitter.cpp)
+# create laser_scan_splitter_nodelet library
 
-rosbuild_add_executable(${LASER_SCAN_SPLITTER} ${LASER_SCAN_SPLITTER_SRC})
+rosbuild_add_library (laser_scan_splitter_nodelet src/laser_scan_splitter_nodelet.cpp)
+target_link_libraries (laser_scan_splitter_nodelet laser_scan_splitter)
+
+# create laser_scan_splitter_node executable
+
+rosbuild_add_executable(laser_scan_splitter_node src/laser_scan_splitter_node.cpp)
+target_link_libraries (laser_scan_splitter_node laser_scan_splitter)

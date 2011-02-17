@@ -25,33 +25,37 @@
 #include <ros/ros.h>
 #include <sensor_msgs/LaserScan.h>
 
-// topic names
-
-const std::string scanTopic_ = "scan";
+const std::string scan_topic_ = "scan";
 
 class LaserScanSplitter
 {
-public:
+  private:
 
-  LaserScanSplitter ();
-  virtual ~ LaserScanSplitter ();
+    // **** ROS-related
+    ros::NodeHandle nh_;
+    ros::NodeHandle nh_private_;
+    ros::Subscriber scan_subscriber_;
+    std::vector<ros::Publisher> scan_publishers_;
 
-private:
+    // **** paramaters
 
-  // paramaters
+    std::vector<std::string> published_scan_topics_;
+    std::vector<std::string> published_laser_frames_;
+    std::vector<int> sizes_;
 
-  std::vector < std::string > publishedScanTopics_;
-  std::vector < std::string > publishedLaserFrames_;
-  std::vector < int >sizes_;
-  unsigned int sizeSum_;
+    // **** state variables
 
-  // publishers & subscirbers
+    unsigned int size_sum_;
 
-  ros::Subscriber scanSubscriber_;
-  std::vector < ros::Publisher > scanPublishers_;
+    // **** member functions
 
-  void scanCallback (const sensor_msgs::LaserScanConstPtr & scan);
-  void tokenize (const std::string & str, std::vector < std::string > &tokens);
+    void scanCallback (const sensor_msgs::LaserScanConstPtr& scan_msg);
+    void tokenize (const std::string& str, std::vector<std::string>& tokens);
+
+  public:
+
+    LaserScanSplitter (ros::NodeHandle nh, ros::NodeHandle nh_private);
+    virtual ~ LaserScanSplitter ();
 };
 
 #endif // LASER_SCAN_SPLITTER_LASER_SCAN_SPLITTER_H
