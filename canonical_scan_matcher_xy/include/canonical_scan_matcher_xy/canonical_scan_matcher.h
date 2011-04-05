@@ -69,6 +69,16 @@ class CanonicalScanMatcher
     double y_;
     double theta_;
 
+    double v_x_;
+    double v_y_;
+    double v_theta_;
+
+    bool use_alpha_beta_;
+    double alpha_;
+    double beta_;
+
+    ros::Time last_icp_time_;
+
     double latest_imu_roll_;
     double latest_imu_pitch_;
     double latest_imu_yaw_;

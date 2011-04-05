@@ -20,6 +20,14 @@ CanonicalScanMatcher::CanonicalScanMatcher(ros::NodeHandle nh, ros::NodeHandle n
   latest_imu_pitch_ = 0;
   latest_imu_yaw_ = 0;
 
+  x_ = 0;
+  y_ = 0;
+  theta_ = 0;
+
+  v_x_ = 0;
+  v_y_ = 0;
+  v_theta_ = 0;
+
   pose_msg_ = boost::make_shared<geometry_msgs::Pose2D>();
 
   input_.laser[0] = 0.0;
@@ -64,6 +72,12 @@ void CanonicalScanMatcher::initParams()
     publish_tf_ = true;
   if (!nh_private_.getParam ("publish_pose", publish_pose_))
     publish_pose_ = true;
+  if (!nh_private_.getParam ("use_alpha_beta", use_alpha_beta_))
+    use_alpha_beta_ = true;
+  if (!nh_private_.getParam ("alpha", alpha_))
+    alpha_ = 0.5;
+  if (!nh_private_.getParam ("beta", beta_))
+    beta_ = 0.5;
 
  // **** CSM parameters - comments copied from algos.h (by Andrea Censi)
 
@@ -163,7 +177,7 @@ void CanonicalScanMatcher::initParams()
 
   // no two points in laser_sens can have the same corr.
   if (!nh_private_.getParam ("outliers_remove_doubles", input_.outliers_remove_doubles))
-    input_.outliers_remove_doubles = 0;
+    input_.outliers_remove_doubles = 1;
 
   // If 1, computes the covariance of ICP using the method http://purl.org/censi/2006/icpcov
   if (!nh_private_.getParam ("do_compute_covariance", input_.do_compute_covariance))
@@ -182,6 +196,9 @@ void CanonicalScanMatcher::initParams()
   // correspondence by 1/sigma^2
   if (!nh_private_.getParam ("use_sigma_weights", input_.use_sigma_weights))
     input_.use_sigma_weights = 0;
+
+
+  printf("input_.max_iterations: %d\n", input_.max_iterations);
 }
 
 void CanonicalScanMatcher::imuCallback (const sensor_msgs::ImuPtr& imu_msg)
@@ -211,6 +228,7 @@ void CanonicalScanMatcher::scanCallback (const sensor_msgs::LaserScan::ConstPtr&
     }
 
     laserScanToLDP(scan_msg, prev_ldp_scan_); 
+    last_icp_time_ = ros::Time::now();
 
     initialized_ = true;
   }
@@ -258,9 +276,30 @@ void CanonicalScanMatcher::processScan(const sensor_msgs::LaserScan::ConstPtr& s
   input_.laser_ref  = prev_ldp_scan_;
   input_.laser_sens = curr_ldp_scan;
 
-  input_.first_guess[0] = 0;
-  input_.first_guess[1] = 0;
-  input_.first_guess[2] = 0;//last_theta_ - latest_theta_; //@FIXME: lock
+  ros::Time new_icp_time = ros::Time::now();
+  ros::Duration dur = new_icp_time - last_icp_time_;
+
+  double cos_theta = cos(theta_);
+  double sin_theta = sin(theta_);
+
+  double exp_ch_x, exp_ch_y, exp_ch_a;
+
+  if(use_alpha_beta_)
+  {
+    exp_ch_x = v_x_     * dur.toSec();
+    exp_ch_y = v_y_     * dur.toSec();
+    exp_ch_a = v_theta_ * dur.toSec();
+
+    input_.first_guess[0] = (cos_theta * exp_ch_x + sin_theta * exp_ch_y);
+    input_.first_guess[1] = (sin_theta * exp_ch_x + cos_theta * exp_ch_y);
+    input_.first_guess[2] = exp_ch_a;//last_theta_ - latest_theta_; //@FIXME: lock
+  }
+  else
+  {
+    input_.first_guess[0] = 0;
+    input_.first_guess[1] = 0;
+    input_.first_guess[2] = 0;
+  }
 
   // *** scan match - using icp (xy means x and y are already computed)
 
@@ -270,14 +309,31 @@ void CanonicalScanMatcher::processScan(const sensor_msgs::LaserScan::ConstPtr& s
   {
     // **** calculate change in position of the laser
 
-    double dx = output_.x[0];
-    double dy = output_.x[1];
-    double da = output_.x[2]; 
+    double dx = (cos_theta * output_.x[0] - sin_theta * output_.x[1]);
+    double dy = (sin_theta * output_.x[0] + cos_theta * output_.x[1]);
+    double da = output_.x[2];
 
-    x_ += (cos(theta_)*dx - sin(theta_)*dy);
-    y_ += (sin(theta_)*dx + cos(theta_)*dy);
-    theta_ += da;
-    
+    if(use_alpha_beta_)
+    {
+      double r_x = dx - exp_ch_x;
+      double r_y = dy - exp_ch_y;
+      double r_a = da - exp_ch_a;
+
+      x_     = (x_     + exp_ch_x) + alpha_ * r_x;
+      y_     = (y_     + exp_ch_y) + alpha_ * r_y;
+      theta_ = (theta_ + exp_ch_a) + alpha_ * r_a;
+
+      v_x_     = v_x_     + (beta_ / dur.toSec()) * r_x;
+      v_y_     = v_y_     + (beta_ / dur.toSec()) * r_y;
+      v_theta_ = v_theta_ + (beta_ / dur.toSec()) * r_a;
+    }
+    else
+    {
+      x_     += dx;
+      y_     += dy;
+      theta_ += da;
+    }
+
     // **** publish
 
     if (publish_pose_) 
@@ -308,10 +364,14 @@ void CanonicalScanMatcher::processScan(const sensor_msgs::LaserScan::ConstPtr& s
     ROS_WARN("Error in scan matching");
   }
 
+
+
   // **** swap old and new
 
   ld_free(prev_ldp_scan_);
   prev_ldp_scan_ = curr_ldp_scan;
+  last_icp_time_ = new_icp_time;
+
   //last_theta_ = latest_theta_;
 }
 

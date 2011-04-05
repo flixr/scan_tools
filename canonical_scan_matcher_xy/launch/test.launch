@@ -14,7 +14,20 @@
     args="0.0 0.0 0.0  0.0 0.0 0.0 /base_link /laser 40" />
 
   <node pkg="canonical_scan_matcher_xy" type="canonical_scan_matcher_node" name="canonical_scan_matcher_node"
-    output="screen"/> 
+    output="screen"> 
+  
+    <param name="use_alpha_beta"  value="true"/>
+    <param name="alpha" value="1.0"/>
+    <param name="beta"  value="0.9"/>
 
+    <param name="max_iterations" value="2"/>
+    <param name="epsilon_xy" value="0.000000001"/>
+    <param name="epsilon_theta" value="0.0000000001"/>
+
+    <param name="orientation_neighbourhood" value="40"/>
+
+  </node>
+
+  <node pkg="rviz" type="rviz" name="rviz"/>
 
 </launch>
