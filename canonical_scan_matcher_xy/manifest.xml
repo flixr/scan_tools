@@ -1,0 +1,22 @@
+<package>
+  <description brief="canonical_scan_matcher_xy">
+
+     Canonical Scan Matcher, with cartesian coordinates.
+
+  </description>
+  <author>Ivan Dryanovski</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/scan_matcher</url>
+  <depend package="roscpp"/>
+  <depend package="sensor_msgs"/>
+  <depend package="tf"/>
+  <depend package="pcl"/>
+  <depend package="pcl_ros"/>
+  <depend package="geometry_msgs"/>
+  <depend package="sensor_msgs"/>
+  <depend package="csm_xy_install"/>
+
+</package>
+
+
