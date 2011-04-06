@@ -62,6 +62,7 @@ class CanonicalScanMatcher
     // **** state variables
 
     bool initialized_;
+    boost::mutex mutex_;
 
     geometry_msgs::Pose2D::Ptr pose_msg_;
 
@@ -82,6 +83,7 @@ class CanonicalScanMatcher
     double latest_imu_roll_;
     double latest_imu_pitch_;
     double latest_imu_yaw_;
+    double last_imu_yaw_;
 
     std::vector<double> a_cos_;
     std::vector<double> a_sin_;

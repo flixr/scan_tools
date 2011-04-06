@@ -208,7 +208,9 @@ void CanonicalScanMatcher::imuCallback (const sensor_msgs::ImuPtr& imu_msg)
   btQuaternion q;
 	tf::quaternionMsgToTF(imu_msg->orientation, q);
   btMatrix3x3 m(q);
+  mutex_.lock();
   m.getRPY(latest_imu_roll_, latest_imu_pitch_, latest_imu_yaw_);
+  mutex_.unlock();
 }
 
 
@@ -229,7 +231,7 @@ void CanonicalScanMatcher::scanCallback (const sensor_msgs::LaserScan::ConstPtr&
 
     laserScanToLDP(scan_msg, prev_ldp_scan_); 
     last_icp_time_ = ros::Time::now();
-
+    last_imu_yaw_ = latest_imu_yaw_;
     initialized_ = true;
   }
 
@@ -276,6 +278,8 @@ void CanonicalScanMatcher::processScan(const sensor_msgs::LaserScan::ConstPtr& s
   input_.laser_ref  = prev_ldp_scan_;
   input_.laser_sens = curr_ldp_scan;
 
+  // **** estimated change since last scan
+
   ros::Time new_icp_time = ros::Time::now();
   ros::Duration dur = new_icp_time - last_icp_time_;
 
@@ -284,6 +288,7 @@ void CanonicalScanMatcher::processScan(const sensor_msgs::LaserScan::ConstPtr& s
 
   double exp_ch_x, exp_ch_y, exp_ch_a;
 
+  mutex_.lock();
   if(use_alpha_beta_)
   {
     exp_ch_x = v_x_     * dur.toSec();
@@ -292,14 +297,16 @@ void CanonicalScanMatcher::processScan(const sensor_msgs::LaserScan::ConstPtr& s
 
     input_.first_guess[0] = (cos_theta * exp_ch_x + sin_theta * exp_ch_y);
     input_.first_guess[1] = (sin_theta * exp_ch_x + cos_theta * exp_ch_y);
-    input_.first_guess[2] = exp_ch_a;//last_theta_ - latest_theta_; //@FIXME: lock
+    input_.first_guess[2] = latest_imu_yaw_ - last_imu_yaw_; //@FIXME: lock
   }
   else
   {
     input_.first_guess[0] = 0;
     input_.first_guess[1] = 0;
-    input_.first_guess[2] = 0;
+    input_.first_guess[2] = latest_imu_yaw_ - last_imu_yaw_;
   }
+  last_imu_yaw_ = latest_imu_yaw_;
+  mutex_.unlock();
 
   // *** scan match - using icp (xy means x and y are already computed)
 
@@ -364,15 +371,11 @@ void CanonicalScanMatcher::processScan(const sensor_msgs::LaserScan::ConstPtr& s
     ROS_WARN("Error in scan matching");
   }
 
-
-
   // **** swap old and new
 
   ld_free(prev_ldp_scan_);
   prev_ldp_scan_ = curr_ldp_scan;
   last_icp_time_ = new_icp_time;
-
-  //last_theta_ = latest_theta_;
 }
 
 void CanonicalScanMatcher::laserScanToLDP(const sensor_msgs::LaserScan::ConstPtr& scan_msg,
@@ -411,12 +414,13 @@ void CanonicalScanMatcher::laserScanToLDP(const sensor_msgs::LaserScan::ConstPtr
       p.setZ(0.0);    
 
       // fill in cloud
-
+/*
       PointT cloud_point;
       cloud_point.x = p.getX();
       cloud_point.y = p.getY();
       cloud_point.z = p.getZ();
       cloud.points.push_back(cloud_point);
+*/
 
       // fill in laser scan data  
 
@@ -426,7 +430,7 @@ void CanonicalScanMatcher::laserScanToLDP(const sensor_msgs::LaserScan::ConstPtr
       ldp->points[i].p[1] = p.getY();
 
       // these are fake, but csm complains if left empty
-      ldp->readings[i] = 1;   
+      ldp->readings[i] = r;   
       ldp->theta[i]    = scan_msg->angle_min + i * scan_msg->angle_increment; 
     }
     else
@@ -453,12 +457,13 @@ void CanonicalScanMatcher::laserScanToLDP(const sensor_msgs::LaserScan::ConstPtr
   ldp->true_pose[2] = 0.0;
 
   // publish the cloud
-
+/*
   cloud.width = cloud.points.size();
   cloud.height = 1;
   cloud.header= scan_msg->header;
-  cloud.header.frame_id = base_frame_;
+  cloud.header.frame_id = fixed_frame_;
   test_pub_.publish(cloud);
+*/
 }
 
 void CanonicalScanMatcher::createCache (const sensor_msgs::LaserScan::ConstPtr& scan_msg)
