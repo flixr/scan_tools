@@ -94,25 +94,26 @@ void LaserScanSplitter::scanCallback (const sensor_msgs::LaserScanConstPtr & sca
 
   for (unsigned int i = 0; i < published_scan_topics_.size (); i++)
   {
-    sensor_msgs::LaserScan scan_segment;
+    sensor_msgs::LaserScan::Ptr scan_segment;
+    scan_segment = boost::make_shared<sensor_msgs::LaserScan>();
 
-    scan_segment.header = scan_msg->header;
-    scan_segment.range_min = scan_msg->range_min;
-    scan_segment.range_max = scan_msg->range_max;
-    scan_segment.angle_increment = scan_msg->angle_increment;
-    scan_segment.time_increment = scan_msg->time_increment;
-    scan_segment.scan_time = scan_msg->scan_time;
-    scan_segment.header.frame_id = published_laser_frames_[i];
+    scan_segment->header = scan_msg->header;
+    scan_segment->range_min = scan_msg->range_min;
+    scan_segment->range_max = scan_msg->range_max;
+    scan_segment->angle_increment = scan_msg->angle_increment;
+    scan_segment->time_increment = scan_msg->time_increment;
+    scan_segment->scan_time = scan_msg->scan_time;
+    scan_segment->header.frame_id = published_laser_frames_[i];
 
-    scan_segment.angle_min = 
+    scan_segment->angle_min = 
       scan_msg->angle_min + (scan_msg->angle_increment * r);
-    scan_segment.angle_max = 
+    scan_segment->angle_max = 
       scan_msg->angle_min + (scan_msg->angle_increment * (r + sizes_[i] - 1));
 
     // TODO - also copy intensity values
 
-    scan_segment.ranges.resize(sizes_[i]);
-    memcpy(&scan_segment.ranges[0], &scan_msg->ranges[r], sizes_[i]*4);
+    scan_segment->ranges.resize(sizes_[i]);
+    memcpy(&scan_segment->ranges[0], &scan_msg->ranges[r], sizes_[i]*4);
     r+=sizes_[i];
 
     scan_publishers_[i].publish (scan_segment);
