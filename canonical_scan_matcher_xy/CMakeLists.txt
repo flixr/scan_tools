@@ -48,11 +48,16 @@ ELSE(${CSM_FOUND})
 ENDIF(${CSM_FOUND})
 ################################################################################
 
-#rosbuild_add_executable(pcl_scan_matcher_node src/scan_matcher.cpp
-#                                              src/pcl_scan_matcher.cpp
-#                                              src/pcl_scan_matcher_node.cpp)  
+# create canonical_scan_matcher nodelet library
+rosbuild_add_library (canonical_scan_matcher_nodelet src/canonical_scan_matcher_nodelet.cpp
+                                                     src/canonical_scan_matcher.cpp)         
 
-rosbuild_add_executable(canonical_scan_matcher_node src/canonical_scan_matcher.cpp
-                                                    src/canonical_scan_matcher_node.cpp)  
+target_link_libraries(canonical_scan_matcher_nodelet ${CSM_LIBRARIES})
 
-target_link_libraries(canonical_scan_matcher_node  ${CSM_LIBRARIES})
+# create canonical_scan_matcher executable
+rosbuild_add_executable(canonical_scan_matcher_node src/canonical_scan_matcher_node.cpp
+                                                    src/canonical_scan_matcher.cpp)
+
+target_link_libraries(canonical_scan_matcher_node ${CSM_LIBRARIES})
+
+

@@ -16,6 +16,11 @@
   <depend package="geometry_msgs"/>
   <depend package="sensor_msgs"/>
   <depend package="csm_xy_install"/>
+  <depend package="nodelet"/>
+
+  <export>
+    <nodelet plugin="${prefix}/canonical_scan_matcher_nodelet.xml" />
+  </export>
 
 </package>
 

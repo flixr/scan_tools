@@ -1,0 +1,9 @@
+<!-- canonical_scan_matcher nodelet publisher -->
+<library path="lib/libcanonical_scan_matcher_nodelet">
+  <class name="canonical_scan_matcher_xy/CanonicalScanMatcherNodelet" 
+    type="CanonicalScanMatcherNodelet" base_class_type="nodelet::Nodelet">
+    <description>
+      Canonical Scan Matcher nodelet publisher.
+    </description>
+  </class>
+</library>
