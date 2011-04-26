@@ -245,7 +245,7 @@ void CanonicalScanMatcher::scanCallback (const sensor_msgs::LaserScan::ConstPtr&
   gettimeofday(&end_, NULL);
   double dur = ((end_.tv_sec   * 1000000 + end_.tv_usec  ) - 
                 (start_.tv_sec * 1000000 + start_.tv_usec)) / 1000.0;
-  printf("ICP: %.1f ms \n", dur);
+  ROS_DEBUG("scan matcher ICP duration: %.1f ms \n", dur);
 }
 
 void CanonicalScanMatcher::processScan(const sensor_msgs::LaserScan::ConstPtr& scan_msg)
