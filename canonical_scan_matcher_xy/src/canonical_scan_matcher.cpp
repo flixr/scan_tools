@@ -29,6 +29,7 @@ CanonicalScanMatcher::CanonicalScanMatcher(ros::NodeHandle nh, ros::NodeHandle n
   v_theta_ = 0;
 
   pose_msg_ = boost::make_shared<geometry_msgs::Pose2D>();
+  twist_msg_ = boost::make_shared<geometry_msgs::Twist>();
 
   input_.laser[0] = 0.0;
   input_.laser[1] = 0.0; 
@@ -51,6 +52,8 @@ CanonicalScanMatcher::CanonicalScanMatcher(ros::NodeHandle nh, ros::NodeHandle n
   // **** pose publisher
   pose_publisher_  = nh_.advertise<geometry_msgs::Pose2D>(
     pose_topic_, 5);
+  vel_publisher_  = nh_.advertise<geometry_msgs::Twist>(
+    vel_topic_, 5);
 }
 
 CanonicalScanMatcher::~CanonicalScanMatcher()
@@ -350,6 +353,16 @@ void CanonicalScanMatcher::processScan(const sensor_msgs::LaserScan::ConstPtr& s
       pose_msg_->theta = theta_;
 
       pose_publisher_.publish(pose_msg_);
+
+      twist_msg_->linear.x = v_x_;
+      twist_msg_->linear.y = v_y_;
+      twist_msg_->linear.z = 0.0;
+
+      twist_msg_->angular.x = 0.0;
+      twist_msg_->angular.y = 0.0;
+      twist_msg_->angular.z = v_theta_;
+
+      vel_publisher_.publish(pose_msg_);
     }
     if (publish_tf_)
     {

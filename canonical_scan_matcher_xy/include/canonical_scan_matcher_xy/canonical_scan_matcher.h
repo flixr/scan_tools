@@ -5,6 +5,7 @@
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/LaserScan.h>
 #include <geometry_msgs/Pose2D.h>
+#include <geometry_msgs/Twist.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
@@ -23,6 +24,7 @@ namespace scan_matcher
 const std::string scan_topic_ = "scan";
 const std::string imu_topic_  = "imu";
 const std::string pose_topic_ = "laser_odom";
+const std::string vel_topic_  = "laser_vel";
 
 typedef pcl::PointXYZ           PointT;
 typedef pcl::PointCloud<PointT> PointCloudT;
@@ -49,6 +51,7 @@ class CanonicalScanMatcher
 
     ros::Publisher  test_pub_;
     ros::Publisher  pose_publisher_;
+    ros::Publisher  vel_publisher_;
 
     // **** parameters
 
@@ -65,6 +68,7 @@ class CanonicalScanMatcher
     boost::mutex mutex_;
 
     geometry_msgs::Pose2D::Ptr pose_msg_;
+    geometry_msgs::Twist::Ptr twist_msg_;
 
     double x_;
     double y_;
