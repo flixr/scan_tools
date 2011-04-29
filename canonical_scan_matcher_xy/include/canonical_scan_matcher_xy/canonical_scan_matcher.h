@@ -24,7 +24,7 @@ namespace scan_matcher
 const std::string scan_topic_ = "scan";
 const std::string imu_topic_  = "imu";
 const std::string pose_topic_ = "laser_odom";
-const std::string vel_topic_  = "laser_vel";
+const std::string vel_topic_  = "/mav/vel";
 
 typedef pcl::PointXYZ           PointT;
 typedef pcl::PointCloud<PointT> PointCloudT;
