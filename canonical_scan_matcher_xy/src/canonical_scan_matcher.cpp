@@ -339,8 +339,8 @@ void CanonicalScanMatcher::processScan(const sensor_msgs::LaserScan::ConstPtr& s
     }
     else
     {
-      x_     +=  cos_theta*dx + sin_theta*dy;
-      y_     += -sin_theta*dx + cos_theta*dy;
+      x_     += dx;
+      y_     += dy;
       theta_ += da;
     }
 
@@ -354,8 +354,8 @@ void CanonicalScanMatcher::processScan(const sensor_msgs::LaserScan::ConstPtr& s
 
       pose_publisher_.publish(pose_msg_);
 
-      twist_msg_->linear.x = v_x_;
-      twist_msg_->linear.y = v_y_;
+      twist_msg_->linear.x =  cos_theta * v_x_ + sin_theta * v_y_ ;
+      twist_msg_->linear.y = -sin_theta * v_x_ + cos_theta * v_y_ ;
       twist_msg_->linear.z = 0.0;
 
       twist_msg_->angular.x = 0.0;
