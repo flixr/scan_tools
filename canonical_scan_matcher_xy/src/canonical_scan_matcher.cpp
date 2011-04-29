@@ -298,8 +298,8 @@ void CanonicalScanMatcher::processScan(const sensor_msgs::LaserScan::ConstPtr& s
     exp_ch_y = v_y_     * dur.toSec();
     exp_ch_a = v_theta_ * dur.toSec();
 
-    input_.first_guess[0] = (cos_theta * exp_ch_x + sin_theta * exp_ch_y);
-    input_.first_guess[1] = (sin_theta * exp_ch_x + cos_theta * exp_ch_y);
+    input_.first_guess[0] = ( cos_theta * exp_ch_x + sin_theta * exp_ch_y);
+    input_.first_guess[1] = (-sin_theta * exp_ch_x + cos_theta * exp_ch_y);
     input_.first_guess[2] = latest_imu_yaw_ - last_imu_yaw_; //@FIXME: lock
   }
   else
@@ -339,8 +339,8 @@ void CanonicalScanMatcher::processScan(const sensor_msgs::LaserScan::ConstPtr& s
     }
     else
     {
-      x_     += dx;
-      y_     += dy;
+      x_     +=  cos_theta*dx + sin_theta*dy;
+      y_     += -sin_theta*dx + cos_theta*dy;
       theta_ += da;
     }
 
