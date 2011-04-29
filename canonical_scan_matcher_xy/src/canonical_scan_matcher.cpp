@@ -362,7 +362,7 @@ void CanonicalScanMatcher::processScan(const sensor_msgs::LaserScan::ConstPtr& s
       twist_msg_->angular.y = 0.0;
       twist_msg_->angular.z = v_theta_;
 
-      vel_publisher_.publish(pose_msg_);
+      vel_publisher_.publish(twist_msg_);
     }
     if (publish_tf_)
     {
