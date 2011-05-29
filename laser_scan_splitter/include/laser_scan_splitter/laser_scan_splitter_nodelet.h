@@ -27,6 +27,8 @@
 
 #include "laser_scan_splitter/laser_scan_splitter.h"
 
+namespace scan_tools {
+
 class LaserScanSplitterNodelet : public nodelet::Nodelet
 {
   public:
@@ -35,5 +37,7 @@ class LaserScanSplitterNodelet : public nodelet::Nodelet
   private:
     LaserScanSplitter * laser_scan_splitter_;  // FIXME: change to smart pointer
 };
+
+} //namespace scan_tools
 
 #endif // LASER_SCAN_SPLITTER_LASER_SCAN_SPLITTER_NODELET_H

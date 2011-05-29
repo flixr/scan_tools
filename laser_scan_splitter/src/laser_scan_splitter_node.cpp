@@ -26,7 +26,7 @@ int main (int argc, char **argv)
   ros::init (argc, argv, "LaserScanSplitter");
   ros::NodeHandle nh;
   ros::NodeHandle nh_private("~");
-  LaserScanSplitter laser_scan_splitter(nh, nh_private);
+  scan_tools::LaserScanSplitter laser_scan_splitter(nh, nh_private);
   ros::spin ();
   return 0;
 }

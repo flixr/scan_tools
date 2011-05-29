@@ -21,6 +21,8 @@
 
 #include "laser_scan_splitter/laser_scan_splitter.h"
 
+namespace scan_tools {
+
 LaserScanSplitter::LaserScanSplitter(ros::NodeHandle nh, ros::NodeHandle nh_private):
   nh_(nh), 
   nh_private_(nh_private)
@@ -85,7 +87,7 @@ void LaserScanSplitter::scanCallback (const sensor_msgs::LaserScanConstPtr & sca
   if (size_sum_ != scan_msg->ranges.size ())
   {
     ROS_WARN ("LaserScanSplitter: Received a laser scan with size (%d) \
-      incompatible to input parameters. Skipping scan.", scan_msg->ranges.size());
+      incompatible to input parameters. Skipping scan.", (int)scan_msg->ranges.size());
     return;
   }
 
@@ -133,3 +135,6 @@ void LaserScanSplitter::tokenize (const std::string & str, std::vector < std::st
     pos = str.find_first_of (" ", last_pos);
   }
 }
+
+} //namespace scan_tools
+

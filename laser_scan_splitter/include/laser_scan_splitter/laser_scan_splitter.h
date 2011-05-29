@@ -25,6 +25,8 @@
 #include <ros/ros.h>
 #include <sensor_msgs/LaserScan.h>
 
+namespace scan_tools {
+
 const std::string scan_topic_ = "scan";
 
 class LaserScanSplitter
@@ -57,5 +59,7 @@ class LaserScanSplitter
     LaserScanSplitter (ros::NodeHandle nh, ros::NodeHandle nh_private);
     virtual ~ LaserScanSplitter ();
 };
+
+} //namespace scan_tools
 
 #endif // LASER_SCAN_SPLITTER_LASER_SCAN_SPLITTER_H
