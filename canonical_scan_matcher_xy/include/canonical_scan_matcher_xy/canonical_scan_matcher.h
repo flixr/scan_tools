@@ -6,6 +6,7 @@
 #include <sensor_msgs/LaserScan.h>
 #include <geometry_msgs/Pose2D.h>
 #include <geometry_msgs/Twist.h>
+#include <nav_msgs/Odometry.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
@@ -21,8 +22,12 @@
 namespace scan_matcher
 {
 
-const std::string scan_topic_ = "scan";
+const std::string scan_topic_  = "scan";
+const std::string cloud_topic_ = "cloud";
+
+const std::string odom_topic_ = "odom";
 const std::string imu_topic_  = "imu";
+
 const std::string pose_topic_ = "laser_odom";
 const std::string vel_topic_  = "/mav/vel";
 
@@ -41,6 +46,8 @@ class CanonicalScanMatcher
     ros::NodeHandle nh_private_;
 
     ros::Subscriber scan_subscriber_;
+    ros::Subscriber cloud_subscriber_;
+    ros::Subscriber odom_subscriber_;
     ros::Subscriber imu_subscriber_;
 
     tf::TransformListener    tf_listener_;
@@ -62,9 +69,27 @@ class CanonicalScanMatcher
     bool publish_tf_;
     bool publish_pose_;
 
+    bool use_cloud_input_;
+
+    // **** What predictions are available to speed up the ICP?
+    // 1) imu - [theta] from imu yaw angle - /odom topic
+    // 2) odom - [x, y, theta] from wheel odometry - /imu topic
+    // 3) alpha_beta - [x, y, theta] from simple tracking filter - no topic req.
+    // If more than one is enabled, priority is imu > odom > alpha_beta
+
+    bool use_imu_;
+    bool use_odom_;
+    bool use_alpha_beta_;
+
+    double alpha_;
+    double beta_;
     // **** state variables
 
     bool initialized_;
+
+    int received_imu_;
+    int received_odom_;
+
     boost::mutex mutex_;
 
     geometry_msgs::Pose2D::Ptr pose_msg_;
@@ -73,21 +98,19 @@ class CanonicalScanMatcher
     double x_;
     double y_;
     double theta_;
+    double cos_theta_, sin_theta_;
 
     double v_x_;
     double v_y_;
     double v_theta_;
 
-    bool use_alpha_beta_;
-    double alpha_;
-    double beta_;
-
     ros::Time last_icp_time_;
 
-    double latest_imu_roll_;
-    double latest_imu_pitch_;
     double latest_imu_yaw_;
     double last_imu_yaw_;
+
+    nav_msgs::Odometry latest_odom_;
+    nav_msgs::Odometry last_odom_;
 
     std::vector<double> a_cos_;
     std::vector<double> a_sin_;
@@ -106,11 +129,19 @@ class CanonicalScanMatcher
                               LDP& ldp);
 
     void scanCallback (const sensor_msgs::LaserScan::ConstPtr& scan_msg);
+    void cloudCallback (const sensor_msgs::PointCloud2::ConstPtr& cloud_msg);
+
+    void odomCallback (const nav_msgs::Odometry::ConstPtr& odom_msg);
     void imuCallback (const sensor_msgs::ImuPtr& imu_msg);
 
     void createCache (const sensor_msgs::LaserScan::ConstPtr& scan_msg);
     bool getBaseToLaserTf (const sensor_msgs::LaserScan::ConstPtr& scan_msg);
     void initParams();
+
+    void getPrediction(double& pr_ch_x, double& pr_ch_y, 
+                       double& pr_ch_a, double dt);
+
+  double getYawFromQuaternion(const geometry_msgs::Quaternion& quaternion);
 
   public:
 

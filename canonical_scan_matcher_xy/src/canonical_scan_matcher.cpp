@@ -16,8 +16,9 @@ CanonicalScanMatcher::CanonicalScanMatcher(ros::NodeHandle nh, ros::NodeHandle n
   // **** state variables 
 
   initialized_ = false;
-  latest_imu_roll_ = 0;
-  latest_imu_pitch_ = 0;
+  received_imu_ = 0;
+  received_odom_ = 0;
+
   latest_imu_yaw_ = 0;
 
   x_ = 0;
@@ -40,20 +41,41 @@ CanonicalScanMatcher::CanonicalScanMatcher(ros::NodeHandle nh, ros::NodeHandle n
 
   // *** subscribers
 
-  scan_subscriber_ = nh_.subscribe(
-    scan_topic_, 1, &CanonicalScanMatcher::scanCallback, this);
+  if (use_cloud_input_)
+  {
+    cloud_subscriber_ = nh_.subscribe(
+      cloud_topic_, 1, &CanonicalScanMatcher::cloudCallback, this);
+  }
+  else
+  {
+    scan_subscriber_ = nh_.subscribe(
+      scan_topic_, 1, &CanonicalScanMatcher::scanCallback, this);
+  }
 
-  imu_subscriber_ = nh_.subscribe(
-    imu_topic_, 1, &CanonicalScanMatcher::imuCallback, this);
+  if (use_imu_)
+  {
+    imu_subscriber_ = nh_.subscribe(
+      imu_topic_, 1, &CanonicalScanMatcher::imuCallback, this);
+  }
+
+  if (use_odom_)
+  {
+    odom_subscriber_ = nh_.subscribe(
+      odom_topic_, 1, &CanonicalScanMatcher::imuCallback, this);
+  }
 
   // **** test
-  test_pub_ = nh_.advertise<PointCloudT>(pub_cloud_topic_, 1);
+  //test_pub_ = nh_.advertise<PointCloudT>(pub_cloud_topic_, 1);
 
   // **** pose publisher
-  pose_publisher_  = nh_.advertise<geometry_msgs::Pose2D>(
-    pose_topic_, 5);
-  vel_publisher_  = nh_.advertise<geometry_msgs::Twist>(
-    vel_topic_, 5);
+  if (publish_pose_)
+  {
+    pose_publisher_  = nh_.advertise<geometry_msgs::Pose2D>(
+      pose_topic_, 5);
+  }
+
+  //vel_publisher_  = nh_.advertise<geometry_msgs::Twist>(
+  //  vel_topic_, 5);
 }
 
 CanonicalScanMatcher::~CanonicalScanMatcher()
@@ -71,12 +93,36 @@ void CanonicalScanMatcher::initParams()
     range_min_ = 0.1;
   if (!nh_private_.getParam ("range_max", range_max_))
     range_max_ = 50.0;
+
+  // **** input type - laser scan, or point clouds?
+  // if false, will subscrive to LaserScan msgs on /scan. 
+  // if true, will subscrive to PointCloud2 msgs on /cloud
+
+  if (!nh_private_.getParam ("use_cloud_input", use_cloud_input_))
+    use_cloud_input_= false;
+
+  // **** What predictions are available to speed up the ICP?
+  // 1) imu - [theta] from imu yaw angle - /odom topic
+  // 2) odom - [x, y, theta] from wheel odometry - /imu topic
+  // 3) alpha_beta - [x, y, theta] from simple tracking filter - no topic req.
+  // If more than one is enabled, priority is imu > odom > alpha_beta
+
+  if (!nh_private_.getParam ("use_imu", use_imu_))
+    use_imu_ = true;
+  if (!nh_private_.getParam ("use_odom", use_odom_))
+    use_odom_ = true;
+  if (!nh_private_.getParam ("use_alpha_beta", use_alpha_beta_))
+    use_alpha_beta_ = true;
+
+  // **** How to publish the output?
+  // tf (fixed_frame->base_frame), 
+  // pose message (pose of base frame in the fixed frame)
+
   if (!nh_private_.getParam ("publish_tf", publish_tf_))
     publish_tf_ = true;
   if (!nh_private_.getParam ("publish_pose", publish_pose_))
     publish_pose_ = true;
-  if (!nh_private_.getParam ("use_alpha_beta", use_alpha_beta_))
-    use_alpha_beta_ = true;
+
   if (!nh_private_.getParam ("alpha", alpha_))
     alpha_ = 0.5;
   if (!nh_private_.getParam ("beta", beta_))
@@ -199,23 +245,36 @@ void CanonicalScanMatcher::initParams()
   // correspondence by 1/sigma^2
   if (!nh_private_.getParam ("use_sigma_weights", input_.use_sigma_weights))
     input_.use_sigma_weights = 0;
-
-
-  printf("input_.max_iterations: %d\n", input_.max_iterations);
 }
 
 void CanonicalScanMatcher::imuCallback (const sensor_msgs::ImuPtr& imu_msg)
 {
   //@FIXME: mutex
 
+  received_imu_++;
   btQuaternion q;
 	tf::quaternionMsgToTF(imu_msg->orientation, q);
   btMatrix3x3 m(q);
+   
+  double temp;
   mutex_.lock();
-  m.getRPY(latest_imu_roll_, latest_imu_pitch_, latest_imu_yaw_);
+  m.getRPY(temp, temp, latest_imu_yaw_);
   mutex_.unlock();
 }
 
+void CanonicalScanMatcher::odomCallback (const nav_msgs::Odometry::ConstPtr& odom_msg)
+{
+  received_odom_++;
+
+  mutex_.lock();
+  latest_odom_ = *odom_msg;
+  mutex_.unlock(); 
+}
+
+void CanonicalScanMatcher::cloudCallback (const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
+{
+
+}
 
 void CanonicalScanMatcher::scanCallback (const sensor_msgs::LaserScan::ConstPtr& scan_msg)
 {
@@ -285,31 +344,14 @@ void CanonicalScanMatcher::processScan(const sensor_msgs::LaserScan::ConstPtr& s
 
   ros::Time new_icp_time = ros::Time::now();
   ros::Duration dur = new_icp_time - last_icp_time_;
+  double dt = dur.toSec();
 
-  double cos_theta = cos(theta_);
-  double sin_theta = sin(theta_);
+  double pr_ch_x, pr_ch_y, pr_ch_a;
+  getPrediction(pr_ch_x, pr_ch_y, pr_ch_a, dt);
 
-  double exp_ch_x, exp_ch_y, exp_ch_a;
-
-  mutex_.lock();
-  if(use_alpha_beta_)
-  {
-    exp_ch_x = v_x_     * dur.toSec();
-    exp_ch_y = v_y_     * dur.toSec();
-    exp_ch_a = v_theta_ * dur.toSec();
-
-    input_.first_guess[0] = ( cos_theta * exp_ch_x + sin_theta * exp_ch_y);
-    input_.first_guess[1] = (-sin_theta * exp_ch_x + cos_theta * exp_ch_y);
-    input_.first_guess[2] = latest_imu_yaw_ - last_imu_yaw_; //@FIXME: lock
-  }
-  else
-  {
-    input_.first_guess[0] = 0;
-    input_.first_guess[1] = 0;
-    input_.first_guess[2] = latest_imu_yaw_ - last_imu_yaw_;
-  }
-  last_imu_yaw_ = latest_imu_yaw_;
-  mutex_.unlock();
+  input_.first_guess[0] = ( cos_theta_ * pr_ch_x + sin_theta_ * pr_ch_y);
+  input_.first_guess[1] = (-sin_theta_ * pr_ch_x + cos_theta_ * pr_ch_y);
+  input_.first_guess[2] = pr_ch_a;
 
   // *** scan match - using icp (xy means x and y are already computed)
 
@@ -319,23 +361,23 @@ void CanonicalScanMatcher::processScan(const sensor_msgs::LaserScan::ConstPtr& s
   {
     // **** calculate change in position of the laser
 
-    double dx = (cos_theta * output_.x[0] - sin_theta * output_.x[1]);
-    double dy = (sin_theta * output_.x[0] + cos_theta * output_.x[1]);
+    double dx = (cos_theta_ * output_.x[0] - sin_theta_ * output_.x[1]);
+    double dy = (sin_theta_ * output_.x[0] + cos_theta_ * output_.x[1]);
     double da = output_.x[2];
 
     if(use_alpha_beta_)
     {
-      double r_x = dx - exp_ch_x;
-      double r_y = dy - exp_ch_y;
-      double r_a = da - exp_ch_a;
+      double r_x = dx - pr_ch_x;
+      double r_y = dy - pr_ch_y;
+      double r_a = da - pr_ch_a;
 
-      x_     = (x_     + exp_ch_x) + alpha_ * r_x;
-      y_     = (y_     + exp_ch_y) + alpha_ * r_y;
-      theta_ = (theta_ + exp_ch_a) + alpha_ * r_a;
+      x_     = (x_     + pr_ch_x) + alpha_ * r_x;
+      y_     = (y_     + pr_ch_y) + alpha_ * r_y;
+      theta_ = (theta_ + pr_ch_a) + alpha_ * r_a;
 
-      v_x_     = v_x_     + (beta_ / dur.toSec()) * r_x;
-      v_y_     = v_y_     + (beta_ / dur.toSec()) * r_y;
-      v_theta_ = v_theta_ + (beta_ / dur.toSec()) * r_a;
+      v_x_     = v_x_     + (beta_ / dt) * r_x;
+      v_y_     = v_y_     + (beta_ / dt) * r_y;
+      v_theta_ = v_theta_ + (beta_ / dt) * r_a;
     }
     else
     {
@@ -343,6 +385,9 @@ void CanonicalScanMatcher::processScan(const sensor_msgs::LaserScan::ConstPtr& s
       y_     += dy;
       theta_ += da;
     }
+
+    cos_theta_ = cos(theta_);
+    sin_theta_ = sin(theta_);
 
     // **** publish
 
@@ -354,8 +399,8 @@ void CanonicalScanMatcher::processScan(const sensor_msgs::LaserScan::ConstPtr& s
 
       pose_publisher_.publish(pose_msg_);
 
-      twist_msg_->linear.x =  cos_theta * v_x_ + sin_theta * v_y_ ;
-      twist_msg_->linear.y = -sin_theta * v_x_ + cos_theta * v_y_ ;
+      twist_msg_->linear.x =  cos_theta_ * v_x_ + sin_theta_ * v_y_ ;
+      twist_msg_->linear.y = -sin_theta_ * v_x_ + cos_theta_ * v_y_ ;
       twist_msg_->linear.z = 0.0;
 
       twist_msg_->angular.x = 0.0;
@@ -397,6 +442,7 @@ void CanonicalScanMatcher::laserScanToLDP(const sensor_msgs::LaserScan::ConstPtr
   unsigned int n = scan_msg->ranges.size();
   ldp = ld_alloc_new(n);
 
+/*
   // derotate
   btTransform base_derot_to_base;
   base_derot_to_base.setOrigin(btVector3(0,0,0));
@@ -405,7 +451,10 @@ void CanonicalScanMatcher::laserScanToLDP(const sensor_msgs::LaserScan::ConstPtr
   base_derot_to_base.setRotation(imu_oriantation);
 
   tf::Transform base_derot_to_laser = base_derot_to_base * base_to_laser_;
-	
+	*/
+
+  tf::Transform base_derot_to_laser = base_to_laser_;
+
   PointCloudT cloud;
 
   for (unsigned int i = 0; i < n; i++)
@@ -551,6 +600,67 @@ void CanonicalScanMatcher::laserScanToPCL(const sensor_msgs::LaserScan::ConstPtr
 }
 */
 
+// returns the predicted change in pose (in fixed frame)
+// since the last time we did icp
+void CanonicalScanMatcher::getPrediction(double& pr_ch_x, double& pr_ch_y, 
+                                         double& pr_ch_a, double dt)
+{
+  // **** base case - no input available, use zero-motion model
+  pr_ch_x = 0.0;
+  pr_ch_y = 0.0;
+  pr_ch_a = 0.0;
+
+  // **** use alpha-beta tracking (const. vel. model)
+  if (use_alpha_beta_)
+  {
+    //@FIXME: lock
+
+    // estmate change in fixed frame, using fixed velocity
+    pr_ch_x = v_x_     * dt;     // in fixed frame
+    pr_ch_y = v_y_     * dt;
+    pr_ch_a = v_theta_ * dt;
+
+    // convert from base to fixed frame
+    //pr_ch_x =  cos_theta_ * x + sin_theta_ * y;     
+    //pr_ch_y = -sin_theta_ * x + cos_theta_ * y;
+    //pr_ch_a = a; 
+  }
+
+  // **** use wheel odometry
+  if (use_odom_ && received_odom_ > 1)
+  {
+    //@FIXME: mutex
+    pr_ch_x = latest_odom_.pose.pose.position.x - 
+              last_odom_.pose.pose.position.x;
+
+    pr_ch_y = latest_odom_.pose.pose.position.y - 
+              last_odom_.pose.pose.position.y;
+
+    pr_ch_a = getYawFromQuaternion(latest_odom_.pose.pose.orientation) -
+              getYawFromQuaternion(last_odom_.pose.pose.orientation);
+
+    last_odom_ = latest_odom_;
+  }
+
+  // **** use imu
+  if (use_imu_ && received_imu_ > 1)
+  {
+    //@FIXME: mutex
+    pr_ch_a = latest_imu_yaw_ - last_imu_yaw_;
+    last_imu_yaw_ = latest_imu_yaw_;
+  }
+}
+
+double CanonicalScanMatcher::getYawFromQuaternion(
+  const geometry_msgs::Quaternion& quaternion)
+{
+  double temp, yaw;
+  btQuaternion q;
+  tf::quaternionMsgToTF(quaternion, q);
+  btMatrix3x3 m(q);
+  m.getRPY(temp, temp, yaw);
+  return yaw;
+}
 
 } //namespace
 
