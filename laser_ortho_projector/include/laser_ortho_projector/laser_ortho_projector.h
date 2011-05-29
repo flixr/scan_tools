@@ -19,60 +19,71 @@
 *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef LASER_ORTHO_PROJECTION_LASER_ORTHO_PROJECTION_H
-#define LASER_ORTHO_PROJECTION_LASER_ORTHO_PROJECTION_H
+#ifndef LASER_ORTHO_PROJECTOR_LASER_ORTHO_PROJECTOR_H
+#define LASER_ORTHO_PROJECTOR_LASER_ORTHO_PROJECTOR_H
 
 #include <ros/ros.h>
 #include <geometry_msgs/Point32.h>
 #include <sensor_msgs/LaserScan.h>
-#include <sensor_msgs/PointCloud.h>
+#include <sensor_msgs/PointCloud2.h>
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
 #include <tf/message_filter.h>
 #include <message_filters/subscriber.h>
-#include <laser_ortho_projector/LaserScanWithAngles.h>
+#include <pcl/io/pcd_io.h>
+#include <pcl/point_types.h>
+#include <pcl/point_cloud.h>
+#include <pcl_ros/point_cloud.h>
 
-static const std::string scanTopic_ = "scan";
-static const std::string scanOrthoTopic_ = "scan_ortho";
-static const std::string cloudOrthoTopic_ = "cloud_ortho";
+namespace scan_tools {
+
+static const std::string scan_topic_ = "scan";
+static const std::string cloud_topic_ = "cloud_ortho";
 
 class LaserOrthoProjector
 {
-public:
+  typedef pcl::PointXYZ           PointT;
+  typedef pcl::PointCloud<PointT> PointCloudT;
 
-  LaserOrthoProjector ();
-  virtual ~ LaserOrthoProjector ();
+  private:
 
-private:
+    // **** ROS-related
+    ros::NodeHandle nh_;
+    ros::NodeHandle nh_private_;
 
-  // paramaters
+    ros::Publisher cloud_publisher_;
+    ros::Subscriber scan_subscriber_;
 
-  std::string worldFrame_;
-  std::string laserOrthoFrame_;
+    tf::TransformListener tf_listener_;
+    tf::TransformBroadcaster tf_broadcaster_;
 
-  bool publishCloud_;
-  int tfTolerance_;
+    // **** paramaters
 
-  // transforms
+    std::string world_frame_;
+    std::string base_frame_;
+    std::string ortho_frame_;
 
-  tf::StampedTransform worldToLaser_;
-  double roll_, pitch_, yaw_;
+    // **** state variables
 
-  // publishers & subscirbers
-  ros::Publisher scanPublisher_;
-  ros::Publisher cloudPublisher_;
+    bool initialized_;
 
-  message_filters::Subscriber < sensor_msgs::LaserScan > *scanFilterSub_;
-  tf::MessageFilter < sensor_msgs::LaserScan > *scanFilter_;
+    std::vector<double> a_sin_;
+    std::vector<double> a_cos_;
 
-  tf::TransformListener tfListener_;
-  tf::TransformBroadcaster tfBroadcaster_;
+    btTransform base_to_laser_; // static, cached
 
-  void scanCallback (const sensor_msgs::LaserScanConstPtr & scan);
-  void publishWorldToLaserOrthoTf (ros::Time time);
-  void publishScanOrtho (const sensor_msgs::LaserScanConstPtr & scan,
-                         laser_ortho_projector::LaserScanWithAngles & scanOrtho);
-  void publishCloudOrtho (const laser_ortho_projector::LaserScanWithAngles & scanOrtho);
+    PointCloudT::Ptr cloud_;
+
+    void scanCallback (const sensor_msgs::LaserScan::ConstPtr& scan_msg);
+    bool getBaseToLaserTf (const sensor_msgs::LaserScan::ConstPtr& scan_msg);
+    void createCache (const sensor_msgs::LaserScan::ConstPtr& scan_msg);
+
+  public:
+
+    LaserOrthoProjector (ros::NodeHandle nh, ros::NodeHandle nh_private);
+    virtual ~ LaserOrthoProjector ();
 };
 
-#endif // LASER_ORTHO_PROJECTION_LASER_ORTHO_PROJECTION_H
+} // namespace scan_tools
+
+#endif // LASER_ORTHO_PROJECTOR_LASER_ORTHO_PROJECTOR_H

@@ -7,7 +7,7 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 #  Release        : w/o debug symbols, w/ optimization
 #  RelWithDebInfo : w/ debug symbols, w/ optimization
 #  MinSizeRel     : w/o debug symbols, w/ optimization, stripped binaries
-set(ROS_BUILD_TYPE RelWithDebInfo)
+set(ROS_BUILD_TYPE MinSizeRel)
 
 rosbuild_init()
 
@@ -17,13 +17,17 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 #uncomment if you have defined messages
-rosbuild_genmsg()
+#rosbuild_genmsg()
 #uncomment if you have defined services
 #rosbuild_gensrv()
 
-set(LASER_ORTHO_PROJECTOR        laser_ortho_projector)
+# create laser_ortho_projector_nodelet library
 
-set(LASER_ORTHO_PROJECTOR_SRC    src/laser_ortho_projector.cpp)
+rosbuild_add_library (laser_ortho_projector_nodelet src/laser_ortho_projector.cpp
+                                                    src/laser_ortho_projector_nodelet.cpp)
 
-rosbuild_add_executable(${LASER_ORTHO_PROJECTOR}   ${LASER_ORTHO_PROJECTOR_SRC})
+# create laser_scan_splitter_node executable
+
+rosbuild_add_executable(laser_ortho_projector_node src/laser_ortho_projector.cpp
+                                                   src/laser_ortho_projector_node.cpp)
 

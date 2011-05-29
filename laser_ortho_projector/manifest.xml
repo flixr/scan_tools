@@ -10,13 +10,16 @@
   <url>http://ros.org/wiki/laser_ortho_projector</url>
 
   <depend package="roscpp"/>
+  <depend package="nodelet"/>
   <depend package="sensor_msgs"/> 
+  <depend package="pcl"/>
+  <depend package="pcl_ros"/>
   <depend package="geometry_msgs"/> 
   <depend package="message_filters"/>
   <depend package="tf"/> 
 
   <export>
-    <cpp cflags="-I${prefix}/include -I${prefix}/msg/cpp" lflags="-L${prefix}/lib -lros"/>
+    <nodelet plugin="${prefix}/laser_ortho_projector_nodelet.xml" />
   </export>
 
 </package>
