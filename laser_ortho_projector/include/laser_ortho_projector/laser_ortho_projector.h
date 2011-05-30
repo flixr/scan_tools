@@ -22,6 +22,8 @@
 #ifndef LASER_ORTHO_PROJECTOR_LASER_ORTHO_PROJECTOR_H
 #define LASER_ORTHO_PROJECTOR_LASER_ORTHO_PROJECTOR_H
 
+
+#include <limits>
 #include <ros/ros.h>
 #include <geometry_msgs/Point32.h>
 #include <sensor_msgs/LaserScan.h>
@@ -69,6 +71,8 @@ class LaserOrthoProjector
 
     std::vector<double> a_sin_;
     std::vector<double> a_cos_;
+
+    PointT nan_point_;
 
     btTransform base_to_laser_; // static, cached
 

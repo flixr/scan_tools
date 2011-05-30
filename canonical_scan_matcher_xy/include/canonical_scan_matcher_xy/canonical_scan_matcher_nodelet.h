@@ -6,7 +6,7 @@
 
 #include "canonical_scan_matcher_xy/canonical_scan_matcher.h"
 
-namespace scan_matcher {
+namespace scan_tools {
 
 class CanonicalScanMatcherNodelet : public nodelet::Nodelet
 {

@@ -1,6 +1,6 @@
 #include "canonical_scan_matcher_xy/canonical_scan_matcher_nodelet.h"
 
-typedef scan_matcher::CanonicalScanMatcherNodelet CanonicalScanMatcherNodelet;
+typedef scan_tools::CanonicalScanMatcherNodelet CanonicalScanMatcherNodelet;
 
 PLUGINLIB_DECLARE_CLASS (canonical_scan_matcher_xy, CanonicalScanMatcherNodelet, 
   CanonicalScanMatcherNodelet, nodelet::Nodelet);
@@ -13,6 +13,6 @@ void CanonicalScanMatcherNodelet::onInit ()
   ros::NodeHandle nh         = getMTNodeHandle();
   ros::NodeHandle nh_private = getMTPrivateNodeHandle();
 
-  scan_matcher_ = new scan_matcher::CanonicalScanMatcher(nh, nh_private);  
+  scan_matcher_ = new scan_tools::CanonicalScanMatcher(nh, nh_private);
 }
 

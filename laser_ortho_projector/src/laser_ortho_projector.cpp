@@ -31,6 +31,10 @@ LaserOrthoProjector::LaserOrthoProjector (ros::NodeHandle nh, ros::NodeHandle nh
 
   initialized_ = false;
 
+  nan_point_.x = std::numeric_limits<float>::quiet_NaN();
+  nan_point_.y = std::numeric_limits<float>::quiet_NaN();
+  nan_point_.z = std::numeric_limits<float>::quiet_NaN();
+
   cloud_ = boost::make_shared<PointCloudT>();
 
   // **** parameters
@@ -126,6 +130,10 @@ void LaserOrthoProjector::scanCallback (const sensor_msgs::LaserScan::ConstPtr& 
       point.y = p.getY();
       point.z = p.getZ();
       cloud_->points.push_back(point);
+    }
+    else
+    {
+      cloud_->points.push_back(nan_point_);
     }
   }
 

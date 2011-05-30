@@ -19,7 +19,7 @@
 #undef min 
 #undef max
 
-namespace scan_matcher
+namespace scan_tools
 {
 
 const std::string scan_topic_  = "scan";
@@ -33,8 +33,6 @@ const std::string vel_topic_  = "/mav/vel";
 
 typedef pcl::PointXYZ           PointT;
 typedef pcl::PointCloud<PointT> PointCloudT;
-
-const std::string pub_cloud_topic_ = "test_cloud";
 
 class CanonicalScanMatcher
 {
@@ -71,6 +69,9 @@ class CanonicalScanMatcher
 
     bool use_cloud_input_;
 
+    double min_cloud_angle_; // needed when using point cloud input
+    double max_cloud_angle_;
+
     // **** What predictions are available to speed up the ICP?
     // 1) imu - [theta] from imu yaw angle - /odom topic
     // 2) odom - [x, y, theta] from wheel odometry - /imu topic
@@ -83,6 +84,7 @@ class CanonicalScanMatcher
 
     double alpha_;
     double beta_;
+
     // **** state variables
 
     bool initialized_;
@@ -123,19 +125,21 @@ class CanonicalScanMatcher
 
     void broadcastTf(const ros::Time& time);
 
-    void processScan(const sensor_msgs::LaserScan::ConstPtr& scan_msg);
+    void processScan(LDP& curr_ldp_scan, const ros::Time& time);
 
     void laserScanToLDP(const sensor_msgs::LaserScan::ConstPtr& scan_msg,
                               LDP& ldp);
+    void PointCloudToLDP(const PointCloudT::ConstPtr& cloud,
+                               LDP& ldp);
 
     void scanCallback (const sensor_msgs::LaserScan::ConstPtr& scan_msg);
-    void cloudCallback (const sensor_msgs::PointCloud2::ConstPtr& cloud_msg);
+    void cloudCallback (const PointCloudT::ConstPtr& cloud);
 
     void odomCallback (const nav_msgs::Odometry::ConstPtr& odom_msg);
     void imuCallback (const sensor_msgs::ImuPtr& imu_msg);
 
     void createCache (const sensor_msgs::LaserScan::ConstPtr& scan_msg);
-    bool getBaseToLaserTf (const sensor_msgs::LaserScan::ConstPtr& scan_msg);
+    bool getBaseToLaserTf (const std::string& frame_id);
     void initParams();
 
     void getPrediction(double& pr_ch_x, double& pr_ch_y, 

@@ -1,6 +1,6 @@
 #include "canonical_scan_matcher_xy/canonical_scan_matcher.h"
 
-namespace scan_matcher
+namespace scan_tools
 {
 
 CanonicalScanMatcher::CanonicalScanMatcher(ros::NodeHandle nh, ros::NodeHandle nh_private):
@@ -64,9 +64,6 @@ CanonicalScanMatcher::CanonicalScanMatcher(ros::NodeHandle nh, ros::NodeHandle n
       odom_topic_, 1, &CanonicalScanMatcher::imuCallback, this);
   }
 
-  // **** test
-  //test_pub_ = nh_.advertise<PointCloudT>(pub_cloud_topic_, 1);
-
   // **** pose publisher
   if (publish_pose_)
   {
@@ -100,6 +97,14 @@ void CanonicalScanMatcher::initParams()
 
   if (!nh_private_.getParam ("use_cloud_input", use_cloud_input_))
     use_cloud_input_= false;
+
+  if (use_cloud_input_)
+  {
+    if (!nh_private_.getParam ("min_cloud_angle_", min_cloud_angle_))
+      min_cloud_angle_ = -M_PI/2.0;
+    if (!nh_private_.getParam ("max_cloud_angle_", max_cloud_angle_))
+      max_cloud_angle_ = M_PI/2.0;
+  }
 
   // **** What predictions are available to speed up the ICP?
   // 1) imu - [theta] from imu yaw angle - /odom topic
@@ -249,31 +254,45 @@ void CanonicalScanMatcher::initParams()
 
 void CanonicalScanMatcher::imuCallback (const sensor_msgs::ImuPtr& imu_msg)
 {
-  //@FIXME: mutex
-
-  received_imu_++;
   btQuaternion q;
 	tf::quaternionMsgToTF(imu_msg->orientation, q);
   btMatrix3x3 m(q);
-   
   double temp;
-  mutex_.lock();
+  boost::mutex::scoped_lock(mutex_);
+  received_imu_++;
   m.getRPY(temp, temp, latest_imu_yaw_);
-  mutex_.unlock();
 }
 
 void CanonicalScanMatcher::odomCallback (const nav_msgs::Odometry::ConstPtr& odom_msg)
 {
+  boost::mutex::scoped_lock(mutex_);
   received_odom_++;
-
-  mutex_.lock();
   latest_odom_ = *odom_msg;
-  mutex_.unlock(); 
 }
 
-void CanonicalScanMatcher::cloudCallback (const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
+void CanonicalScanMatcher::cloudCallback (const PointCloudT::ConstPtr& cloud)
 {
+  // **** if first scan, cache the tf from base to the scanner
 
+  if (!initialized_)
+  {
+    // cache the static tf from base to laser
+    if (!getBaseToLaserTf(cloud->header.frame_id))
+    {
+      ROS_WARN("ScanMatcher: Skipping scan");
+      return;
+    }
+
+    PointCloudToLDP(cloud, prev_ldp_scan_);
+    last_icp_time_ = cloud->header.stamp;
+    last_imu_yaw_ = latest_imu_yaw_;
+    last_odom_ = latest_odom_;
+    initialized_ = true;
+  }
+
+  LDP curr_ldp_scan;
+  PointCloudToLDP(cloud, curr_ldp_scan);
+  processScan(curr_ldp_scan, cloud->header.stamp);
 }
 
 void CanonicalScanMatcher::scanCallback (const sensor_msgs::LaserScan::ConstPtr& scan_msg)
@@ -285,40 +304,34 @@ void CanonicalScanMatcher::scanCallback (const sensor_msgs::LaserScan::ConstPtr&
     createCache(scan_msg);    // caches the sin and cos of all angles
 
     // cache the static tf from base to laser
-    if (!getBaseToLaserTf(scan_msg))
+    if (!getBaseToLaserTf(scan_msg->header.frame_id))
     {
       ROS_WARN("ScanMatcher: Skipping scan");
       return;
     }
 
     laserScanToLDP(scan_msg, prev_ldp_scan_); 
-    last_icp_time_ = ros::Time::now();
+    last_icp_time_ = scan_msg->header.stamp;
     last_imu_yaw_ = latest_imu_yaw_;
+    last_odom_ = latest_odom_;
     initialized_ = true;
   }
 
-  // **** process the laser scan
+  LDP curr_ldp_scan;
+  laserScanToLDP(scan_msg, curr_ldp_scan);
+  processScan(curr_ldp_scan, scan_msg->header.stamp);
+}
 
+void CanonicalScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time)
+{
   struct timeval start_, end_;    // used for timing
   gettimeofday(&start_, NULL);
 
-  processScan(scan_msg);
-  
-  gettimeofday(&end_, NULL);
-  double dur = ((end_.tv_sec   * 1000000 + end_.tv_usec  ) - 
-                (start_.tv_sec * 1000000 + start_.tv_usec)) / 1000.0;
-  ROS_DEBUG("scan matcher ICP duration: %.1f ms \n", dur);
-}
-
-void CanonicalScanMatcher::processScan(const sensor_msgs::LaserScan::ConstPtr& scan_msg)
-{
   // CSM is used in the following way:
   // The reference scan (prevLDPcan_) always has a pose of 0
   // The new scan (currLDPScan) has a pose equal to the movement
   // of the laser in the world frame since the last scan (btTransform change)
   // The computed correction is then propagated using the tf machinery
-
-  // **** set up the "model" (previous scan)
 
   prev_ldp_scan_->odometry[0] = 0;
   prev_ldp_scan_->odometry[1] = 0;
@@ -331,11 +344,6 @@ void CanonicalScanMatcher::processScan(const sensor_msgs::LaserScan::ConstPtr& s
   prev_ldp_scan_->true_pose[0] = 0;
   prev_ldp_scan_->true_pose[1] = 0;
   prev_ldp_scan_->true_pose[2] = 0;
-
-  // **** set up the "data" (new scan)
-
-  LDP curr_ldp_scan;
-  laserScanToLDP(scan_msg, curr_ldp_scan);
 
   input_.laser_ref  = prev_ldp_scan_;
   input_.laser_sens = curr_ldp_scan;
@@ -420,7 +428,7 @@ void CanonicalScanMatcher::processScan(const sensor_msgs::LaserScan::ConstPtr& s
       t.setRotation(q);
 
       tf::StampedTransform transform_msg (
-        t, scan_msg->header.stamp, fixed_frame_, base_frame_);
+        t, time, fixed_frame_, base_frame_);
       tf_broadcaster_.sendTransform (transform_msg);
     }
   }
@@ -434,6 +442,60 @@ void CanonicalScanMatcher::processScan(const sensor_msgs::LaserScan::ConstPtr& s
   ld_free(prev_ldp_scan_);
   prev_ldp_scan_ = curr_ldp_scan;
   last_icp_time_ = new_icp_time;
+
+  // **** statistics
+
+  gettimeofday(&end_, NULL);
+  double icp_dur = ((end_.tv_sec   * 1000000 + end_.tv_usec  ) -
+                    (start_.tv_sec * 1000000 + start_.tv_usec)) / 1000.0;
+  ROS_DEBUG("scan matcher ICP duration: %.1f ms \n", icp_dur);
+}
+
+void CanonicalScanMatcher::PointCloudToLDP(const PointCloudT::ConstPtr& cloud,
+                                                 LDP& ldp)
+{
+  unsigned int n = cloud->points.size();
+  ldp = ld_alloc_new(n);
+
+  for (unsigned int i = 0; i < n; i++)
+  {
+    // calculate position in laser frame
+
+    if (!is_nan(cloud->points[i].z))
+    {
+      // fill in laser scan data
+
+      ldp->valid[i] = 1;
+
+      ldp->points[i].p[0] = cloud->points[i].x;
+      ldp->points[i].p[1] = cloud->points[i].y;
+
+      // these are fake, but csm complains if left empty
+      ldp->readings[i] = 1.0;
+    }
+    else
+    {
+      ldp->valid[i] = 0;
+
+      // these are fake, but csm complains if left empty
+      ldp->readings[i] = -1;  // for invalid range
+    }
+
+    ldp->theta[i] = max_cloud_angle_ + (double)n/(double)i * (max_cloud_angle_ - min_cloud_angle_);
+
+    ldp->cluster[i]  = -1;
+  }
+
+  ldp->min_theta = ldp->theta[0];
+  ldp->max_theta = ldp->theta[n-1];
+
+  ldp->odometry[0] = 0.0;
+  ldp->odometry[1] = 0.0;
+  ldp->odometry[2] = 0.0;
+
+  ldp->true_pose[0] = 0.0;
+  ldp->true_pose[1] = 0.0;
+  ldp->true_pose[2] = 0.0;
 }
 
 void CanonicalScanMatcher::laserScanToLDP(const sensor_msgs::LaserScan::ConstPtr& scan_msg,
@@ -441,21 +503,6 @@ void CanonicalScanMatcher::laserScanToLDP(const sensor_msgs::LaserScan::ConstPtr
 {
   unsigned int n = scan_msg->ranges.size();
   ldp = ld_alloc_new(n);
-
-/*
-  // derotate
-  btTransform base_derot_to_base;
-  base_derot_to_base.setOrigin(btVector3(0,0,0));
-  btQuaternion imu_oriantation;
-  imu_oriantation.setRPY(latest_imu_roll_, latest_imu_pitch_, 0);
-  base_derot_to_base.setRotation(imu_oriantation);
-
-  tf::Transform base_derot_to_laser = base_derot_to_base * base_to_laser_;
-	*/
-
-  tf::Transform base_derot_to_laser = base_to_laser_;
-
-  PointCloudT cloud;
 
   for (unsigned int i = 0; i < n; i++)
   {
@@ -469,20 +516,6 @@ void CanonicalScanMatcher::laserScanToLDP(const sensor_msgs::LaserScan::ConstPtr
       p.setX(r * a_cos_[i]);
       p.setY(r * a_sin_[i]);
       p.setZ(0.0);
-
-      // transform to derotated base frame and project down
-
-      p = base_derot_to_laser * p;
-      p.setZ(0.0);    
-
-      // fill in cloud
-/*
-      PointT cloud_point;
-      cloud_point.x = p.getX();
-      cloud_point.y = p.getY();
-      cloud_point.z = p.getZ();
-      cloud.points.push_back(cloud_point);
-*/
 
       // fill in laser scan data  
 
@@ -517,15 +550,6 @@ void CanonicalScanMatcher::laserScanToLDP(const sensor_msgs::LaserScan::ConstPtr
   ldp->true_pose[0] = 0.0;
   ldp->true_pose[1] = 0.0;
   ldp->true_pose[2] = 0.0;
-
-  // publish the cloud
-/*
-  cloud.width = cloud.points.size();
-  cloud.height = 1;
-  cloud.header= scan_msg->header;
-  cloud.header.frame_id = fixed_frame_;
-  test_pub_.publish(cloud);
-*/
 }
 
 void CanonicalScanMatcher::createCache (const sensor_msgs::LaserScan::ConstPtr& scan_msg)
@@ -549,15 +573,15 @@ void CanonicalScanMatcher::broadcastTf(const ros::Time& time)
 //  tf_broadcaster_.sendTransform (transform_msg);
 }    
 
-bool CanonicalScanMatcher::getBaseToLaserTf (const sensor_msgs::LaserScan::ConstPtr& scan_msg)
+bool CanonicalScanMatcher::getBaseToLaserTf (const std::string& frame_id)
 {
   tf::StampedTransform base_to_laser_tf;
   try
   {
     tf_listener_.waitForTransform(
-      base_frame_, scan_msg->header.frame_id, scan_msg->header.stamp, ros::Duration(1.0));
+      base_frame_, frame_id, ros::Time::now(), ros::Duration(1.0));
     tf_listener_.lookupTransform (
-      base_frame_, scan_msg->header.frame_id, scan_msg->header.stamp, base_to_laser_tf);
+      base_frame_, frame_id, ros::Time::now(), base_to_laser_tf);
   }
   catch (tf::TransformException ex)
   {
