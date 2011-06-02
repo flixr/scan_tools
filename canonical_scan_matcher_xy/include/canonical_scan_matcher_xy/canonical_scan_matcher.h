@@ -22,14 +22,14 @@
 namespace scan_tools
 {
 
+// inputs
 const std::string scan_topic_  = "scan";
 const std::string cloud_topic_ = "cloud";
+const std::string odom_topic_  = "odom";
+const std::string imu_topic_   = "imu";
 
-const std::string odom_topic_ = "odom";
-const std::string imu_topic_  = "imu";
-
-const std::string pose_topic_ = "laser_odom";
-const std::string vel_topic_  = "/mav/vel";
+// outputs
+const std::string pose_topic_ = "matcher_pose";
 
 typedef pcl::PointXYZ           PointT;
 typedef pcl::PointCloud<PointT> PointCloudT;
@@ -123,8 +123,6 @@ class CanonicalScanMatcher
 
     // **** methods
 
-    void broadcastTf(const ros::Time& time);
-
     void processScan(LDP& curr_ldp_scan, const ros::Time& time);
 
     void laserScanToLDP(const sensor_msgs::LaserScan::ConstPtr& scan_msg,
@@ -145,7 +143,7 @@ class CanonicalScanMatcher
     void getPrediction(double& pr_ch_x, double& pr_ch_y, 
                        double& pr_ch_a, double dt);
 
-  double getYawFromQuaternion(const geometry_msgs::Quaternion& quaternion);
+    double getYawFromQuaternion(const geometry_msgs::Quaternion& quaternion);
 
   public:
 

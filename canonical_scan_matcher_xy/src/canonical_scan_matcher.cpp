@@ -30,7 +30,6 @@ CanonicalScanMatcher::CanonicalScanMatcher(ros::NodeHandle nh, ros::NodeHandle n
   v_theta_ = 0;
 
   pose_msg_ = boost::make_shared<geometry_msgs::Pose2D>();
-  twist_msg_ = boost::make_shared<geometry_msgs::Twist>();
 
   input_.laser[0] = 0.0;
   input_.laser[1] = 0.0; 
@@ -70,9 +69,6 @@ CanonicalScanMatcher::CanonicalScanMatcher(ros::NodeHandle nh, ros::NodeHandle n
     pose_publisher_  = nh_.advertise<geometry_msgs::Pose2D>(
       pose_topic_, 5);
   }
-
-  //vel_publisher_  = nh_.advertise<geometry_msgs::Twist>(
-  //  vel_topic_, 5);
 }
 
 CanonicalScanMatcher::~CanonicalScanMatcher()
@@ -404,31 +400,17 @@ void CanonicalScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time
       pose_msg_->x = x_;
       pose_msg_->y = y_;
       pose_msg_->theta = theta_;
-
       pose_publisher_.publish(pose_msg_);
-
-      twist_msg_->linear.x =  cos_theta_ * v_x_ + sin_theta_ * v_y_ ;
-      twist_msg_->linear.y = -sin_theta_ * v_x_ + cos_theta_ * v_y_ ;
-      twist_msg_->linear.z = 0.0;
-
-      twist_msg_->angular.x = 0.0;
-      twist_msg_->angular.y = 0.0;
-      twist_msg_->angular.z = v_theta_;
-
-      vel_publisher_.publish(twist_msg_);
     }
     if (publish_tf_)
     {
       btTransform t;
-
       t.setOrigin(btVector3(x_,y_,0));
-
       btQuaternion q;
       q.setRPY(0,0, theta_);
       t.setRotation(q);
 
-      tf::StampedTransform transform_msg (
-        t, time, fixed_frame_, base_frame_);
+      tf::StampedTransform transform_msg (t, time, fixed_frame_, base_frame_);
       tf_broadcaster_.sendTransform (transform_msg);
     }
   }
@@ -481,7 +463,9 @@ void CanonicalScanMatcher::PointCloudToLDP(const PointCloudT::ConstPtr& cloud,
       ldp->readings[i] = -1;  // for invalid range
     }
 
-    ldp->theta[i] = max_cloud_angle_ + (double)n/(double)i * (max_cloud_angle_ - min_cloud_angle_);
+    // these are fake, but csm complains if left empty
+    ldp->theta[i] = max_cloud_angle_ + 
+                   (double)n/(double)i * (max_cloud_angle_ - min_cloud_angle_);
 
     ldp->cluster[i]  = -1;
   }
@@ -524,7 +508,7 @@ void CanonicalScanMatcher::laserScanToLDP(const sensor_msgs::LaserScan::ConstPtr
       ldp->points[i].p[0] = p.getX();
       ldp->points[i].p[1] = p.getY();
 
-      // these are fake, but csm complains if left empty
+      // these are not needed, but csm complains if left empty
       ldp->readings[i] = r;   
       ldp->theta[i]    = scan_msg->angle_min + i * scan_msg->angle_increment; 
     }
@@ -532,7 +516,7 @@ void CanonicalScanMatcher::laserScanToLDP(const sensor_msgs::LaserScan::ConstPtr
     {
       ldp->valid[i] = 0;
 
-      // these are fake, but csm complains if left empty
+      // these are not needed, but csm complains if left empty
       ldp->readings[i] = -1;  // for invalid range
       ldp->theta[i]    = scan_msg->angle_min + i * scan_msg->angle_increment;
     }
@@ -565,14 +549,6 @@ void CanonicalScanMatcher::createCache (const sensor_msgs::LaserScan::ConstPtr& 
   }
 }
 
-void CanonicalScanMatcher::broadcastTf(const ros::Time& time)
-{
-//  tf::StampedTransform transform_msg(
-//    latest_est_pose_, time, fixed_frame_, base_frame_);
-
-//  tf_broadcaster_.sendTransform (transform_msg);
-}    
-
 bool CanonicalScanMatcher::getBaseToLaserTf (const std::string& frame_id)
 {
   tf::StampedTransform base_to_laser_tf;
@@ -594,36 +570,6 @@ bool CanonicalScanMatcher::getBaseToLaserTf (const std::string& frame_id)
   return true;
 }
 
-/*
-void CanonicalScanMatcher::laserScanToPCL(const sensor_msgs::LaserScan::ConstPtr& scan_msg,
-                                          PointCloudT::Ptr& cloud_ptr)
-{
-  cloud_ptr->header = scan_msg->header;
-
-  for (unsigned int i = 0; i < scan_msg->ranges.size(); ++i)
-  {
-    double r = scan_msg->ranges[i];
-    
-    if (r > scan_msg->range_min && r < scan_msg->range_max)
-    {
-      PointT p;
-      p.x = r * a_cos_[i];
-      p.y = r * a_sin_[i];
-      p.z = 0.0;
-      cloud_ptr->points.push_back(p);
-    }
-    else
-    {
-      cloud_ptr->points.push_back(p_nan_);
-    }
-  }
-
-  cloud_ptr->width = cloud_ptr->points.size();
-  cloud_ptr->height = 1; 
-  cloud_ptr->is_dense = false; 
-}
-*/
-
 // returns the predicted change in pose (in fixed frame)
 // since the last time we did icp
 void CanonicalScanMatcher::getPrediction(double& pr_ch_x, double& pr_ch_y, 
@@ -643,11 +589,6 @@ void CanonicalScanMatcher::getPrediction(double& pr_ch_x, double& pr_ch_y,
     pr_ch_x = v_x_     * dt;     // in fixed frame
     pr_ch_y = v_y_     * dt;
     pr_ch_a = v_theta_ * dt;
-
-    // convert from base to fixed frame
-    //pr_ch_x =  cos_theta_ * x + sin_theta_ * y;     
-    //pr_ch_y = -sin_theta_ * x + cos_theta_ * y;
-    //pr_ch_a = a; 
   }
 
   // **** use wheel odometry
