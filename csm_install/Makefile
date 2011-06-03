@@ -11,7 +11,7 @@ installed: $(GIT_DIR)
 	cd $(GIT_DIR) && patch -p0 < ../../patch_h
 	cd $(GIT_DIR) && patch -p0 < ../../patch_c
 	cd $(GIT_DIR) && patch -p0 < ../../patch_a
-	cd $(GIT_DIR) && cmake -DCMAKE_INSTALL_PREFIX:PATH=$(CURDIR)
+	cd $(GIT_DIR) && cmake -DCMAKE_INSTALL_PREFIX:PATH=$(CURDIR) -DCMAKE_C_FLAGS:STRING="-fPIC"
 	cd $(GIT_DIR) && make
 	cd $(GIT_DIR) && make install
 	touch installed

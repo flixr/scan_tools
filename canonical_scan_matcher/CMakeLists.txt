@@ -49,16 +49,18 @@ ENDIF(${CSM_FOUND})
 
 ################################################################################
 
-# create canonical_scan_matcher nodelet library
-rosbuild_add_library (canonical_scan_matcher_nodelet src/canonical_scan_matcher_nodelet.cpp
-                                                     src/canonical_scan_matcher.cpp)         
+rosbuild_add_library (ros_csm src/canonical_scan_matcher.cpp)         
 
-target_link_libraries(canonical_scan_matcher_nodelet ${CSM_LIBRARIES})
+target_link_libraries(ros_csm ${CSM_LIBRARIES})
+
+# create canonical_scan_matcher nodelet library
+rosbuild_add_library (canonical_scan_matcher_nodelet src/canonical_scan_matcher_nodelet.cpp)         
+
+target_link_libraries(canonical_scan_matcher_nodelet ros_csm)
 
 # create canonical_scan_matcher executable
-rosbuild_add_executable(canonical_scan_matcher_node src/canonical_scan_matcher_node.cpp
-                                                    src/canonical_scan_matcher.cpp)
+rosbuild_add_executable(canonical_scan_matcher_node src/canonical_scan_matcher_node.cpp)
 
-target_link_libraries(canonical_scan_matcher_node ${CSM_LIBRARIES})
+target_link_libraries(canonical_scan_matcher_node ros_csm)
 
 
