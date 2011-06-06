@@ -46,7 +46,6 @@ CanonicalScanMatcher::CanonicalScanMatcher(ros::NodeHandle nh, ros::NodeHandle n
   initialized_ = false;
   received_imu_ = 0;
   received_odom_ = 0;
-
   latest_imu_yaw_ = 0;
 
   x_ = 0;
@@ -603,6 +602,8 @@ bool CanonicalScanMatcher::getBaseToLaserTf (const std::string& frame_id)
 void CanonicalScanMatcher::getPrediction(double& pr_ch_x, double& pr_ch_y, 
                                          double& pr_ch_a, double dt)
 {
+  boost::mutex::scoped_lock(mutex_);
+
   // **** base case - no input available, use zero-motion model
   pr_ch_x = 0.0;
   pr_ch_y = 0.0;
@@ -611,8 +612,6 @@ void CanonicalScanMatcher::getPrediction(double& pr_ch_x, double& pr_ch_y,
   // **** use alpha-beta tracking (const. vel. model)
   if (use_alpha_beta_)
   {
-    //@FIXME: lock
-
     // estmate change in fixed frame, using fixed velocity
     pr_ch_x = v_x_     * dt;     // in fixed frame
     pr_ch_y = v_y_     * dt;
@@ -622,7 +621,6 @@ void CanonicalScanMatcher::getPrediction(double& pr_ch_x, double& pr_ch_y,
   // **** use wheel odometry
   if (use_odom_ && received_odom_ > 1)
   {
-    //@FIXME: mutex
     pr_ch_x = latest_odom_.pose.pose.position.x - 
               last_odom_.pose.pose.position.x;
 
@@ -638,7 +636,6 @@ void CanonicalScanMatcher::getPrediction(double& pr_ch_x, double& pr_ch_y,
   // **** use imu
   if (use_imu_ && received_imu_ > 1)
   {
-    //@FIXME: mutex
     pr_ch_a = latest_imu_yaw_ - last_imu_yaw_;
     last_imu_yaw_ = latest_imu_yaw_;
   }
