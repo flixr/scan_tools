@@ -43,16 +43,15 @@ CanonicalScanMatcher::CanonicalScanMatcher(ros::NodeHandle nh, ros::NodeHandle n
 
   // **** state variables 
 
-  initialized_ = false;
-  received_imu_ = false;
+  initialized_   = false;
+  received_imu_  = false;
   received_odom_ = false;
-  latest_imu_yaw_ = 0;
 
   w2b_.setIdentity();
 
   v_x_ = 0;
   v_y_ = 0;
-  v_theta_ = 0;
+  v_a_ = 0;
 
   pose_msg_ = boost::make_shared<geometry_msgs::Pose2D>();
 
@@ -69,6 +68,9 @@ CanonicalScanMatcher::CanonicalScanMatcher(ros::NodeHandle nh, ros::NodeHandle n
   {
     cloud_subscriber_ = nh_.subscribe(
       cloud_topic_, 1, &CanonicalScanMatcher::cloudCallback, this);
+
+    input_.min_reading = range_min_;
+    input_.max_reading = range_max_;
   }
   else
   {
@@ -274,15 +276,7 @@ void CanonicalScanMatcher::initParams()
 }
 
 void CanonicalScanMatcher::imuCallback (const sensor_msgs::ImuPtr& imu_msg)
-{/*
-  btQuaternion q;
-	tf::quaternionMsgToTF(imu_msg->orientation, q);
-  btMatrix3x3 m(q);
-  double temp;
-  boost::mutex::scoped_lock(mutex_);
-  received_imu_++;
-  m.getRPY(temp, temp, latest_imu_yaw_);
-*/
+{
   boost::mutex::scoped_lock(mutex_);
   latest_imu_yaw_ = getYawFromQuaternion(imu_msg->orientation);
   if (!received_imu_)
@@ -450,9 +444,9 @@ void CanonicalScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time
 
       if (dt != 0.0)
       {
-        v_x_     = v_x_     + (beta_ / dt) * r_x;
-        v_y_     = v_y_     + (beta_ / dt) * r_y;
-        v_theta_ = v_theta_ + (beta_ / dt) * r_a;
+        v_x_ = v_x_ + (beta_ / dt) * r_x;
+        v_y_ = v_y_ + (beta_ / dt) * r_y;
+        v_a_ = v_a_ + (beta_ / dt) * r_a;
       }
     }
     else
@@ -479,9 +473,9 @@ void CanonicalScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time
   {
     ROS_WARN("Error in scan matching");
 
-    v_x_     = 0.0;
-    v_y_     = 0.0;
-    v_theta_ = 0.0;
+    v_x_ = 0.0;
+    v_y_ = 0.0;
+    v_a_ = 0.0;
   }
 
   // **** swap old and new
@@ -614,6 +608,9 @@ void CanonicalScanMatcher::createCache (const sensor_msgs::LaserScan::ConstPtr& 
     a_cos_.push_back(cos(angle));
     a_sin_.push_back(sin(angle));
   }
+
+  input_.min_reading = scan_msg->range_min;
+  input_.max_reading = scan_msg->range_max;
 }
 
 bool CanonicalScanMatcher::getBaseToLaserTf (const std::string& frame_id)
@@ -653,9 +650,9 @@ void CanonicalScanMatcher::getPrediction(double& pr_ch_x, double& pr_ch_y,
   if (use_alpha_beta_)
   {
     // estmate change in fixed frame, using fixed velocity
-    pr_ch_x = v_x_     * dt;     // in fixed frame
-    pr_ch_y = v_y_     * dt;
-    pr_ch_a = v_theta_ * dt;
+    pr_ch_x = v_x_ * dt;     // in fixed frame
+    pr_ch_y = v_y_ * dt;
+    pr_ch_a = v_a_ * dt;
   }
 
   // **** use wheel odometry

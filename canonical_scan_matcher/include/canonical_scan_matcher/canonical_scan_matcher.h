@@ -128,7 +128,7 @@ class CanonicalScanMatcher
 
     double v_x_;
     double v_y_;
-    double v_theta_;
+    double v_a_;
 
     ros::Time last_icp_time_;
 
