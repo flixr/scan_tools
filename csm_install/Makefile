@@ -8,9 +8,9 @@ include $(shell rospack find mk)/git_checkout.mk
 
 installed: $(GIT_DIR)
 	cd $(GIT_DIR) && mkdir -p deploy
-	cd $(GIT_DIR) && patch -p0 < ../../patch_h
-	cd $(GIT_DIR) && patch -p0 < ../../patch_c
 	cd $(GIT_DIR) && patch -p0 < ../../patch_a
+	cd $(GIT_DIR) && patch -p0 < ../../patch_b
+	cd $(GIT_DIR) && patch -p0 < ../../patch_c
 	cd $(GIT_DIR) && cmake -DCMAKE_INSTALL_PREFIX:PATH=$(CURDIR) -DCMAKE_C_FLAGS:STRING="-fPIC"
 	cd $(GIT_DIR) && make
 	cd $(GIT_DIR) && make install
