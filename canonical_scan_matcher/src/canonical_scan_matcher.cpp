@@ -44,8 +44,8 @@ CanonicalScanMatcher::CanonicalScanMatcher(ros::NodeHandle nh, ros::NodeHandle n
   // **** state variables 
 
   initialized_ = false;
-  received_imu_ = 0;
-  received_odom_ = 0;
+  received_imu_ = false;
+  received_odom_ = false;
   latest_imu_yaw_ = 0;
 
   w2b_.setIdentity();
@@ -85,7 +85,7 @@ CanonicalScanMatcher::CanonicalScanMatcher(ros::NodeHandle nh, ros::NodeHandle n
   if (use_odom_)
   {
     odom_subscriber_ = nh_.subscribe(
-      odom_topic_, 1, &CanonicalScanMatcher::imuCallback, this);
+      odom_topic_, 1, &CanonicalScanMatcher::odomCallback, this);
   }
 
   // **** pose publisher
@@ -274,7 +274,7 @@ void CanonicalScanMatcher::initParams()
 }
 
 void CanonicalScanMatcher::imuCallback (const sensor_msgs::ImuPtr& imu_msg)
-{
+{/*
   btQuaternion q;
 	tf::quaternionMsgToTF(imu_msg->orientation, q);
   btMatrix3x3 m(q);
@@ -282,13 +282,25 @@ void CanonicalScanMatcher::imuCallback (const sensor_msgs::ImuPtr& imu_msg)
   boost::mutex::scoped_lock(mutex_);
   received_imu_++;
   m.getRPY(temp, temp, latest_imu_yaw_);
+*/
+  boost::mutex::scoped_lock(mutex_);
+  latest_imu_yaw_ = getYawFromQuaternion(imu_msg->orientation);
+  if (!received_imu_)
+  {
+    last_imu_yaw_ = getYawFromQuaternion(imu_msg->orientation);
+    received_imu_ = true;
+  }
 }
 
 void CanonicalScanMatcher::odomCallback (const nav_msgs::Odometry::ConstPtr& odom_msg)
 {
   boost::mutex::scoped_lock(mutex_);
-  received_odom_++;
   latest_odom_ = *odom_msg;
+  if (!received_odom_)
+  {
+    last_odom_ = *odom_msg;
+    received_odom_ = true;
+  }
 }
 
 void CanonicalScanMatcher::cloudCallback (const PointCloudT::ConstPtr& cloud)
@@ -466,6 +478,10 @@ void CanonicalScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time
   else
   {
     ROS_WARN("Error in scan matching");
+
+    v_x_     = 0.0;
+    v_y_     = 0.0;
+    v_theta_ = 0.0;
   }
 
   // **** swap old and new
@@ -643,7 +659,7 @@ void CanonicalScanMatcher::getPrediction(double& pr_ch_x, double& pr_ch_y,
   }
 
   // **** use wheel odometry
-  if (use_odom_ && received_odom_ > 1)
+  if (use_odom_ && received_odom_)
   {
     pr_ch_x = latest_odom_.pose.pose.position.x - 
               last_odom_.pose.pose.position.x;
@@ -658,7 +674,7 @@ void CanonicalScanMatcher::getPrediction(double& pr_ch_x, double& pr_ch_y,
   }
 
   // **** use imu
-  if (use_imu_ && received_imu_ > 1)
+  if (use_imu_ && received_imu_)
   {
     pr_ch_a = latest_imu_yaw_ - last_imu_yaw_;
     last_imu_yaw_ = latest_imu_yaw_;

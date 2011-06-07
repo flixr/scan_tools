@@ -117,8 +117,8 @@ class CanonicalScanMatcher
 
     bool initialized_;
 
-    int received_imu_;
-    int received_odom_;
+    bool received_imu_;
+    bool received_odom_;
 
     boost::mutex mutex_;
 
