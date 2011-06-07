@@ -48,9 +48,7 @@ CanonicalScanMatcher::CanonicalScanMatcher(ros::NodeHandle nh, ros::NodeHandle n
   received_odom_ = 0;
   latest_imu_yaw_ = 0;
 
-  x_ = 0;
-  y_ = 0;
-  theta_ = 0;
+  w2b_.setIdentity();
 
   v_x_ = 0;
   v_y_ = 0;
@@ -140,7 +138,7 @@ void CanonicalScanMatcher::initParams()
   if (!nh_private_.getParam ("use_odom", use_odom_))
     use_odom_ = true;
   if (!nh_private_.getParam ("use_alpha_beta", use_alpha_beta_))
-    use_alpha_beta_ = true;
+    use_alpha_beta_ = false;
 
   // **** How to publish the output?
   // tf (fixed_frame->base_frame), 
@@ -152,9 +150,9 @@ void CanonicalScanMatcher::initParams()
     publish_pose_ = true;
 
   if (!nh_private_.getParam ("alpha", alpha_))
-    alpha_ = 0.5;
+    alpha_ = 1.0;
   if (!nh_private_.getParam ("beta", beta_))
-    beta_ = 0.5;
+    beta_ = 0.8;
 
  // **** CSM parameters - comments copied from algos.h (by Andrea Censi)
 
@@ -172,15 +170,15 @@ void CanonicalScanMatcher::initParams()
 
   // A threshold for stopping (m)
   if (!nh_private_.getParam ("epsilon_xy", input_.epsilon_xy))
-    input_.epsilon_xy = 0.001;
+    input_.epsilon_xy = 0.000001;
 
   // A threshold for stopping (rad)
   if (!nh_private_.getParam ("epsilon_theta", input_.epsilon_theta))
-    input_.epsilon_theta = 0.00872;
+    input_.epsilon_theta = 0.000001;
 
   // Maximum distance for a correspondence to be valid
   if (!nh_private_.getParam ("max_correspondence_dist", input_.max_correspondence_dist))
-    input_.max_correspondence_dist = 0.5;
+    input_.max_correspondence_dist = 0.3;
 
   // Noise in the scan (m)
   if (!nh_private_.getParam ("sigma", input_.sigma))
@@ -212,7 +210,7 @@ void CanonicalScanMatcher::initParams()
 
   // Number of neighbour rays used to estimate the orientation
   if (!nh_private_.getParam ("orientation_neighbourhood", input_.orientation_neighbourhood))
-    input_.orientation_neighbourhood = 10;
+    input_.orientation_neighbourhood = 20;
 
   // If 0, it's vanilla ICP
   if (!nh_private_.getParam ("use_point_to_line_distance", input_.use_point_to_line_distance))
@@ -351,9 +349,10 @@ void CanonicalScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time
   gettimeofday(&start_, NULL);
 
   // CSM is used in the following way:
-  // The reference scan (prevLDPcan_) always has a pose of 0
+  // The scans are always in the laser frame
+  // The reference scan (prevLDPcan_) has a pose of 0
   // The new scan (currLDPScan) has a pose equal to the movement
-  // of the laser in the world frame since the last scan (btTransform change)
+  // of the laser in the laser frame since the last scan 
   // The computed correction is then propagated using the tf machinery
 
   prev_ldp_scan_->odometry[0] = 0;
@@ -380,64 +379,87 @@ void CanonicalScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time
   double pr_ch_x, pr_ch_y, pr_ch_a;
   getPrediction(pr_ch_x, pr_ch_y, pr_ch_a, dt);
 
-  input_.first_guess[0] = ( cos_theta_ * pr_ch_x + sin_theta_ * pr_ch_y);
-  input_.first_guess[1] = (-sin_theta_ * pr_ch_x + cos_theta_ * pr_ch_y);
-  input_.first_guess[2] = pr_ch_a;
+  // the predicted change of the laser's position, in the base frame
 
+  tf::Transform pr_ch;
+  createTfFromXYTheta(pr_ch_x, pr_ch_y, pr_ch_a, pr_ch);
+
+  // the predicted change of the laser's position, in the laser frame
+
+  tf::Transform pr_ch_l;
+  pr_ch_l = laser_to_base_ * pr_ch * base_to_laser_;
+  
+  input_.first_guess[0] = pr_ch_l.getOrigin().getX();
+  input_.first_guess[1] = pr_ch_l.getOrigin().getY();
+  input_.first_guess[2] = getYawFromQuaternion(pr_ch_l.getRotation());
+
+/*
+  printf("%f, %f, %f\n", input_.first_guess[0],  
+                         input_.first_guess[0], 
+                         input_.first_guess[2]);
+*/
   // *** scan match - using icp (xy means x and y are already computed)
 
   sm_icp_xy(&input_, &output_);
 
   if (output_.valid) 
   {
-    // **** calculate change in position of the laser
+    // the correction of the laser's position, in the laser frame
 
-    double dx = (cos_theta_ * output_.x[0] - sin_theta_ * output_.x[1]);
-    double dy = (sin_theta_ * output_.x[0] + cos_theta_ * output_.x[1]);
-    double da = output_.x[2];
+    tf::Transform corr_ch_l;
+    createTfFromXYTheta(output_.x[0], output_.x[1], output_.x[2], corr_ch_l);
+
+    // the correction of the base's position, in the world frame
+
+    tf::Transform corr_ch = base_to_laser_ * corr_ch_l * laser_to_base_;
 
     if(use_alpha_beta_)
     {
+      tf::Transform w2b_new = w2b_ * corr_ch;
+
+      double dx = w2b_new.getOrigin().getX() - w2b_.getOrigin().getX();
+      double dy = w2b_new.getOrigin().getY() - w2b_.getOrigin().getY();
+      double da = getYawFromQuaternion(w2b_new.getRotation()) - 
+                  getYawFromQuaternion(w2b_.getRotation());
+
       double r_x = dx - pr_ch_x;
       double r_y = dy - pr_ch_y;
       double r_a = da - pr_ch_a;
 
-      x_     = (x_     + pr_ch_x) + alpha_ * r_x;
-      y_     = (y_     + pr_ch_y) + alpha_ * r_y;
-      theta_ = (theta_ + pr_ch_a) + alpha_ * r_a;
+      double x = w2b_.getOrigin().getX();
+      double y = w2b_.getOrigin().getY();
+      double a = getYawFromQuaternion(w2b_.getRotation());
 
-      v_x_     = v_x_     + (beta_ / dt) * r_x;
-      v_y_     = v_y_     + (beta_ / dt) * r_y;
-      v_theta_ = v_theta_ + (beta_ / dt) * r_a;
+      double x_new  = (x + pr_ch_x) + alpha_ * r_x;
+      double y_new  = (y + pr_ch_y) + alpha_ * r_y;
+      double a_new  = (a + pr_ch_a) + alpha_ * r_a;
+
+      createTfFromXYTheta(x_new, y_new, a_new, w2b_);
+
+      if (dt != 0.0)
+      {
+        v_x_     = v_x_     + (beta_ / dt) * r_x;
+        v_y_     = v_y_     + (beta_ / dt) * r_y;
+        v_theta_ = v_theta_ + (beta_ / dt) * r_a;
+      }
     }
     else
     {
-      x_     += dx;
-      y_     += dy;
-      theta_ += da;
+      w2b_ = w2b_ * corr_ch;
     }
-
-    cos_theta_ = cos(theta_);
-    sin_theta_ = sin(theta_);
 
     // **** publish
 
     if (publish_pose_) 
     {
-      pose_msg_->x = x_;
-      pose_msg_->y = y_;
-      pose_msg_->theta = theta_;
+      pose_msg_->x = w2b_.getOrigin().getX();
+      pose_msg_->y = w2b_.getOrigin().getY();
+      pose_msg_->theta = getYawFromQuaternion(w2b_.getRotation());
       pose_publisher_.publish(pose_msg_);
     }
     if (publish_tf_)
     {
-      btTransform t;
-      t.setOrigin(btVector3(x_,y_,0));
-      btQuaternion q;
-      q.setRPY(0,0, theta_);
-      t.setRotation(q);
-
-      tf::StampedTransform transform_msg (t, time, fixed_frame_, base_frame_);
+      tf::StampedTransform transform_msg (w2b_, time, fixed_frame_, base_frame_);
       tf_broadcaster_.sendTransform (transform_msg);
     }
   }
@@ -527,6 +549,8 @@ void CanonicalScanMatcher::laserScanToLDP(const sensor_msgs::LaserScan::ConstPtr
       p.setX(r * a_cos_[i]);
       p.setY(r * a_sin_[i]);
       p.setZ(0.0);
+
+      //p = base_to_laser_ * p;
 
       // fill in laser scan data  
 
@@ -642,14 +666,29 @@ void CanonicalScanMatcher::getPrediction(double& pr_ch_x, double& pr_ch_y,
 }
 
 double CanonicalScanMatcher::getYawFromQuaternion(
-  const geometry_msgs::Quaternion& quaternion)
+  const tf::Quaternion& quaternion)
 {
   double temp, yaw;
-  btQuaternion q;
-  tf::quaternionMsgToTF(quaternion, q);
-  btMatrix3x3 m(q);
+  btMatrix3x3 m(quaternion);
   m.getRPY(temp, temp, yaw);
   return yaw;
+}
+
+double CanonicalScanMatcher::getYawFromQuaternion(
+  const geometry_msgs::Quaternion& quaternion)
+{
+  tf::Quaternion q;
+  tf::quaternionMsgToTF(quaternion, q);
+  return getYawFromQuaternion(q);
+}
+
+void CanonicalScanMatcher::createTfFromXYTheta(
+  double x, double y, double theta, tf::Transform& t)
+{
+  t.setOrigin(btVector3(x, y, 0.0));
+  tf::Quaternion q;
+  q.setRPY(0.0, 0.0, theta);
+  t.setRotation(q);
 }
 
 } //namespace

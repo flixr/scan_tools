@@ -46,7 +46,7 @@
 + 	ld_compute_cartesian(laser_ref);
 + 	ld_compute_cartesian(laser_sens);
 + */
-+ /*
++ 
 + 	if(params->do_alpha_test) {
 + 		ld_simple_clustering(laser_ref, params->clustering_threshold);
 + 		ld_compute_orientation(laser_ref, params->orientation_neighbourhood, params->sigma);
@@ -56,10 +56,10 @@
 + 
 + 	if(JJ) jj_add("laser_ref",  ld_to_json(laser_ref));
 + 	if(JJ) jj_add("laser_sens", ld_to_json(laser_sens));
-+ */	
++ 	
 + 	gsl_vector * x_new = gsl_vector_alloc(3);
 + 	gsl_vector * x_old = vector_from_array(3, params->first_guess);
-+ /*	
++ 	
 + 	if(params->do_visibility_test) {
 + 		sm_debug("laser_ref:\n");
 + 		visibilityTest(laser_ref, x_old);
@@ -70,7 +70,7 @@
 + 		visibilityTest(laser_sens, minus_x_old);
 + 		gsl_vector_free(minus_x_old);
 + 	}
-+ 	*/
++ 	
 + 	double error;
 + 	int iterations;
 + 	int nvalid;
@@ -86,7 +86,7 @@
 + 		double best_error = error;
 + 		gsl_vector * best_x = gsl_vector_alloc(3);
 + 		gsl_vector_memcpy(best_x, x_new);
-+ /*
++ 
 + 		if(params->restart && 
 + 			(error/nvalid)>(params->restart_threshold_mean_error) ) {
 + 			sm_debug("Restarting: %f > %f \n",(error/nvalid),(params->restart_threshold_mean_error));
@@ -123,14 +123,14 @@
 + 				gsl_vector_free(x_a); gsl_vector_free(start);
 + 			}
 + 		}
-+ 	*/
++ 	
 + 	
 + 		/* At last, we did it. */
 + 		res->valid = 1;
 + 		vector_to_array(best_x, res->x);
 + 		sm_debug("icp: final x =  %s  \n", gsl_friendly_pose(best_x));
 + 	
-+ 	/*
++ 	
 + 		if(params->do_compute_covariance)  {
 + 
 + 			val cov0_x, dx_dy1, dx_dy2;
@@ -155,7 +155,7 @@
 + 				egsl_print_spectrum("ifim", ifim);
 + 			}
 + 		}
-+ 	*/
++ 	
 + 		res->error = best_error;
 + 		res->iterations = iterations;
 + 		res->nvalid = nvalid;

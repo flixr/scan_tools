@@ -123,12 +123,8 @@ class CanonicalScanMatcher
     boost::mutex mutex_;
 
     geometry_msgs::Pose2D::Ptr pose_msg_;
-    geometry_msgs::Twist::Ptr twist_msg_;
 
-    double x_;
-    double y_;
-    double theta_;
-    double cos_theta_, sin_theta_;
+    tf::Transform w2b_;
 
     double v_x_;
     double v_y_;
@@ -172,6 +168,8 @@ class CanonicalScanMatcher
                        double& pr_ch_a, double dt);
 
     double getYawFromQuaternion(const geometry_msgs::Quaternion& quaternion);
+    double getYawFromQuaternion(const tf::Quaternion& quaternion);
+    void createTfFromXYTheta(double x, double y, double theta, tf::Transform& t);
 
   public:
 
