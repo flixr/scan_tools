@@ -27,6 +27,7 @@
 #include <ros/ros.h>
 #include <geometry_msgs/Point32.h>
 #include <sensor_msgs/LaserScan.h>
+#include <sensor_msgs/Imu.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
@@ -40,6 +41,7 @@
 namespace scan_tools {
 
 static const std::string scan_topic_ = "scan";
+static const std::string imu_topic_  = "imu";
 static const std::string cloud_topic_ = "cloud_ortho";
 
 class LaserOrthoProjector
@@ -55,6 +57,7 @@ class LaserOrthoProjector
 
     ros::Publisher cloud_publisher_;
     ros::Subscriber scan_subscriber_;
+    ros::Subscriber imu_subscriber_;
 
     tf::TransformListener tf_listener_;
     tf::TransformBroadcaster tf_broadcaster_;
@@ -64,6 +67,8 @@ class LaserOrthoProjector
     std::string world_frame_;
     std::string base_frame_;
     std::string ortho_frame_;
+    bool publish_tf_;
+    bool use_imu_;
 
     // **** state variables
 
@@ -72,6 +77,8 @@ class LaserOrthoProjector
     std::vector<double> a_sin_;
     std::vector<double> a_cos_;
 
+    sensor_msgs::Imu latest_imu_msg_;
+
     PointT nan_point_;
 
     btTransform base_to_laser_; // static, cached
@@ -79,6 +86,7 @@ class LaserOrthoProjector
     PointCloudT::Ptr cloud_;
 
     void scanCallback (const sensor_msgs::LaserScan::ConstPtr& scan_msg);
+    void imuCallback (const sensor_msgs::Imu::ConstPtr& imu_msg);
     bool getBaseToLaserTf (const sensor_msgs::LaserScan::ConstPtr& scan_msg);
     void createCache (const sensor_msgs::LaserScan::ConstPtr& scan_msg);
 

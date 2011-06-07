@@ -45,13 +45,24 @@ LaserOrthoProjector::LaserOrthoProjector (ros::NodeHandle nh, ros::NodeHandle nh
     base_frame_ = "base_link";
   if (!nh_private_.getParam ("ortho_frame", ortho_frame_))
     ortho_frame_ = "base_ortho";
+  if (!nh_private_.getParam ("publish_tf", publish_tf_))
+    publish_tf_ = false;
+  if (!nh_private_.getParam ("use_imu", use_imu_))
+    use_imu_ = true;
 
   // **** subscribe to laser scan messages
 
   scan_subscriber_ = nh_.subscribe(
     scan_topic_, 10, &LaserOrthoProjector::scanCallback, this);
 
+  if (use_imu_)
+  {
+    imu_subscriber_ = nh_.subscribe(
+      imu_topic_, 10, &LaserOrthoProjector::imuCallback, this);
+  }
+
   // **** advertise orthogonal scan
+
   cloud_publisher_ = nh_.advertise<PointCloudT>(
     cloud_topic_, 10);
 }
@@ -59,6 +70,11 @@ LaserOrthoProjector::LaserOrthoProjector (ros::NodeHandle nh, ros::NodeHandle nh
 LaserOrthoProjector::~LaserOrthoProjector ()
 {
 
+}
+
+void LaserOrthoProjector::imuCallback (const sensor_msgs::Imu::ConstPtr& imu_msg)
+{
+  latest_imu_msg_ = *imu_msg;
 }
 
 void LaserOrthoProjector::scanCallback (const sensor_msgs::LaserScan::ConstPtr& scan_msg)
@@ -73,20 +89,32 @@ void LaserOrthoProjector::scanCallback (const sensor_msgs::LaserScan::ConstPtr& 
 
   // **** obtain transform between fixed and base frame
 
-  tf::StampedTransform world_to_base_tf;
+  btTransform world_to_base;
 
-  try
+  if(use_imu_)
   {
-    tf_listener_.lookupTransform (
-      world_frame_, base_frame_, scan_msg->header.stamp, world_to_base_tf);
+    world_to_base.setIdentity();
+    btQuaternion q;
+    tf::quaternionMsgToTF(latest_imu_msg_.orientation, q);
+    world_to_base.setRotation(q);
   }
-  catch (tf::TransformException ex)
+  else
   {
-    // transform unavailable - skip scan
-    ROS_WARN ("Skipping scan (%s)", ex.what ());
-    return;
+    tf::StampedTransform world_to_base_tf;
+
+    try
+    {
+      tf_listener_.lookupTransform (
+        world_frame_, base_frame_, scan_msg->header.stamp, world_to_base_tf);
+    }
+    catch (tf::TransformException ex)
+    {
+      // transform unavailable - skip scan
+      ROS_WARN ("Skipping scan (%s)", ex.what ());
+      return;
+    }
+    world_to_base = world_to_base_tf;
   }
-  btTransform world_to_base = world_to_base_tf;
 
   double roll, pitch, yaw;
   btMatrix3x3 m (world_to_base.getRotation ());
@@ -106,8 +134,11 @@ void LaserOrthoProjector::scanCallback (const sensor_msgs::LaserScan::ConstPtr& 
                    0.0);
   world_to_ortho.setOrigin (origin);
 
-  tf::StampedTransform world_to_ortho_tf(world_to_ortho, scan_msg->header.stamp, world_frame_, ortho_frame_);
-  tf_broadcaster_.sendTransform (world_to_ortho_tf);
+  if (publish_tf_)
+  {
+    tf::StampedTransform world_to_ortho_tf(world_to_ortho, scan_msg->header.stamp, world_frame_, ortho_frame_);
+    tf_broadcaster_.sendTransform (world_to_ortho_tf);
+  }
 
   // **** build and publish projected cloud
 
