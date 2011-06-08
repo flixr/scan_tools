@@ -104,6 +104,8 @@ void LaserOrthoProjector::scanCallback (const sensor_msgs::LaserScan::ConstPtr& 
 
     try
     {
+      tf_listener_.waitForTransform (
+        world_frame_, base_frame_, scan_msg->header.stamp, ros::Duration(0.5));
       tf_listener_.lookupTransform (
         world_frame_, base_frame_, scan_msg->header.stamp, world_to_base_tf);
     }
@@ -146,7 +148,7 @@ void LaserOrthoProjector::scanCallback (const sensor_msgs::LaserScan::ConstPtr& 
   cloud_->header = scan_msg->header;
   cloud_->header.frame_id = ortho_frame_;
 
-  for (unsigned int i = 0; i < scan_msg->ranges.size (); i++)
+  for (unsigned int i = 0; i < scan_msg->ranges.size(); i++)
   {
     double r = scan_msg->ranges[i];
 

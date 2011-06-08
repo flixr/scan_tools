@@ -123,9 +123,9 @@ void CanonicalScanMatcher::initParams()
 
   if (use_cloud_input_)
   {
-    if (!nh_private_.getParam ("min_cloud_angle_", min_cloud_angle_))
+    if (!nh_private_.getParam ("min_cloud_angle", min_cloud_angle_))
       min_cloud_angle_ = -M_PI/2.0;
-    if (!nh_private_.getParam ("max_cloud_angle_", max_cloud_angle_))
+    if (!nh_private_.getParam ("max_cloud_angle", max_cloud_angle_))
       max_cloud_angle_ = M_PI/2.0;
   }
 
@@ -401,7 +401,7 @@ void CanonicalScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time
 
 /*
   printf("%f, %f, %f\n", input_.first_guess[0],  
-                         input_.first_guess[0], 
+                         input_.first_guess[1], 
                          input_.first_guess[2]);
 */
   // *** scan match - using icp (xy means x and y are already computed)
@@ -411,6 +411,8 @@ void CanonicalScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time
   if (output_.valid) 
   {
     // the correction of the laser's position, in the laser frame
+
+    //printf("%f, %f, %f\n", output_.x[0], output_.x[1], output_.x[2]);
 
     tf::Transform corr_ch_l;
     createTfFromXYTheta(output_.x[0], output_.x[1], output_.x[2], corr_ch_l);
@@ -489,13 +491,13 @@ void CanonicalScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time
   gettimeofday(&end_, NULL);
   double icp_dur = ((end_.tv_sec   * 1000000 + end_.tv_usec  ) -
                     (start_.tv_sec * 1000000 + start_.tv_usec)) / 1000.0;
-  ROS_DEBUG("scan matcher ICP duration: %.1f ms \n", icp_dur);
+  ROS_DEBUG("scan matcher ICP duration: %.1f ms", icp_dur);
 }
 
 void CanonicalScanMatcher::PointCloudToLDP(const PointCloudT::ConstPtr& cloud,
                                                  LDP& ldp)
 {
-  unsigned int n = cloud->points.size();
+  unsigned int n = cloud->width * cloud->height ;
   ldp = ld_alloc_new(n);
 
   for (unsigned int i = 0; i < n; i++)
@@ -523,8 +525,11 @@ void CanonicalScanMatcher::PointCloudToLDP(const PointCloudT::ConstPtr& cloud,
     }
 
     // these are fake, but csm complains if left empty
-    ldp->theta[i] = max_cloud_angle_ + 
-                   (double)n/(double)i * (max_cloud_angle_ - min_cloud_angle_);
+    ldp->theta[i] = min_cloud_angle_ + (double)i * 0.00436332309619;
+  
+    //ldp->theta[i] = 0.0;
+
+    //printf("\t\t [%d] %f\n", i, ldp->theta[i]);
 
     ldp->cluster[i]  = -1;
   }
@@ -552,22 +557,15 @@ void CanonicalScanMatcher::laserScanToLDP(const sensor_msgs::LaserScan::ConstPtr
     // calculate position in laser frame
 
     double r = scan_msg->ranges[i];
-    btVector3 p;
 
     if (r > scan_msg->range_min && r < scan_msg->range_max)
     {
-      p.setX(r * a_cos_[i]);
-      p.setY(r * a_sin_[i]);
-      p.setZ(0.0);
-
-      //p = base_to_laser_ * p;
-
       // fill in laser scan data  
 
       ldp->valid[i] = 1;
 
-      ldp->points[i].p[0] = p.getX();
-      ldp->points[i].p[1] = p.getY();
+      ldp->points[i].p[0] = r * a_cos_[i];
+      ldp->points[i].p[1] = r * a_sin_[i];
 
       // these are not needed, but csm complains if left empty
       ldp->readings[i] = r;   
@@ -615,13 +613,15 @@ void CanonicalScanMatcher::createCache (const sensor_msgs::LaserScan::ConstPtr& 
 
 bool CanonicalScanMatcher::getBaseToLaserTf (const std::string& frame_id)
 {
+  ros::Time t = ros::Time::now();
+
   tf::StampedTransform base_to_laser_tf;
   try
   {
     tf_listener_.waitForTransform(
-      base_frame_, frame_id, ros::Time::now(), ros::Duration(1.0));
+      base_frame_, frame_id, t, ros::Duration(1.0));
     tf_listener_.lookupTransform (
-      base_frame_, frame_id, ros::Time::now(), base_to_laser_tf);
+      base_frame_, frame_id, t, base_to_laser_tf);
   }
   catch (tf::TransformException ex)
   {

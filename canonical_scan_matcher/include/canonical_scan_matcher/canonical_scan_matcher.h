@@ -57,7 +57,7 @@ const std::string odom_topic_  = "odom";
 const std::string imu_topic_   = "imu";
 
 // outputs
-const std::string pose_topic_ = "matcher_pose";
+const std::string pose_topic_ = "pose2D";
 
 typedef pcl::PointXYZ           PointT;
 typedef pcl::PointCloud<PointT> PointCloudT;
