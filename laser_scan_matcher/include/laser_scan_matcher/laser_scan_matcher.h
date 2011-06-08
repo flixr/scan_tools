@@ -90,15 +90,12 @@ class LaserScanMatcher
 
     std::string base_frame_;
     std::string fixed_frame_;
-    double range_min_;
-    double range_max_;
+    double cloud_range_min_;
+    double cloud_range_max_;
     bool publish_tf_;
     bool publish_pose_;
 
     bool use_cloud_input_;
-
-    double min_cloud_angle_;      // needed when using point cloud input
-    double cloud_angle_inrement_; // needed when using point cloud input
 
     // **** What predictions are available to speed up the ICP?
     // 1) imu - [theta] from imu yaw angle - /odom topic
@@ -124,10 +121,10 @@ class LaserScanMatcher
 
     geometry_msgs::Pose2D::Ptr pose_msg_;
 
-    tf::Transform w2b_;
+    tf::Transform w2b_; // world-to-base tf (pose of base frame)
 
-    double v_x_;
-    double v_y_;
+    double v_x_;  // velocity estimated by the alpha-beta tracker
+    double v_y_;  
     double v_a_;
 
     ros::Time last_icp_time_;

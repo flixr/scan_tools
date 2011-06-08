@@ -166,7 +166,7 @@ void LaserOrthoProjector::scanCallback (const sensor_msgs::LaserScan::ConstPtr& 
     }
     else
     {
-      cloud_->points.push_back(nan_point_);
+      //cloud_->points.push_back(nan_point_);
     }
   }
 

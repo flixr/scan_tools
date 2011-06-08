@@ -59,9 +59,6 @@ LaserScanMatcher::LaserScanMatcher(ros::NodeHandle nh, ros::NodeHandle nh_privat
   input_.laser[1] = 0.0; 
   input_.laser[2] = 0.0; 
 
-  input_.min_reading = range_min_;
-  input_.max_reading = range_max_;
-
   // *** subscribers
 
   if (use_cloud_input_)
@@ -69,8 +66,6 @@ LaserScanMatcher::LaserScanMatcher(ros::NodeHandle nh, ros::NodeHandle nh_privat
     cloud_subscriber_ = nh_.subscribe(
       cloud_topic_, 1, &LaserScanMatcher::cloudCallback, this);
 
-    input_.min_reading = range_min_;
-    input_.max_reading = range_max_;
   }
   else
   {
@@ -109,10 +104,6 @@ void LaserScanMatcher::initParams()
     base_frame_ = "base_link";
   if (!nh_private_.getParam ("fixed_frame", fixed_frame_))
     fixed_frame_ = "world"; 
-  if (!nh_private_.getParam ("range_min", range_min_))
-    range_min_ = 0.1;
-  if (!nh_private_.getParam ("range_max", range_max_))
-    range_max_ = 50.0;
 
   // **** input type - laser scan, or point clouds?
   // if false, will subscrive to LaserScan msgs on /scan. 
@@ -123,12 +114,13 @@ void LaserScanMatcher::initParams()
 
   if (use_cloud_input_)
   {
-    if (!nh_private_.getParam ("min_cloud_angle", min_cloud_angle_))
-      ROS_FATAL("Scan matcher: min_cloud_angle parameter needs to be set when \
-use_cloud_input is true");
-    if (!nh_private_.getParam ("cloud_angle_inrement", cloud_angle_inrement_))
-      ROS_FATAL("Scan matcher: cloud_angle_inrement parameter needs to be set when \
-use_cloud_input is true");
+    if (!nh_private_.getParam ("cloud_range_min", cloud_range_min_))
+      cloud_range_min_ = 0.1;
+    if (!nh_private_.getParam ("cloud_range_max", cloud_range_max_))
+      cloud_range_max_ = 50.0;
+
+    input_.min_reading = cloud_range_min_;
+    input_.max_reading = cloud_range_max_;
   }
 
   // **** What predictions are available to speed up the ICP?
@@ -406,9 +398,9 @@ void LaserScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time)
                          input_.first_guess[1], 
                          input_.first_guess[2]);
 */
-  // *** scan match - using icp (xy means x and y are already computed)
+  // *** scan match - using point to line icp from CSM
 
-  sm_icp_xy(&input_, &output_);
+  sm_icp(&input_, &output_);
 
   if (output_.valid) 
   {
@@ -491,9 +483,9 @@ void LaserScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time)
   // **** statistics
 
   gettimeofday(&end, NULL);
-  double icp_dur = ((end.tv_sec   * 1000000 + end.tv_usec  ) -
-                    (start.tv_sec * 1000000 + start.tv_usec)) / 1000.0;
-  ROS_DEBUG("scan matcher ICP duration: %.1f ms", icp_dur);
+  double dur_total = ((end.tv_sec   * 1000000 + end.tv_usec  ) -
+                      (start.tv_sec * 1000000 + start.tv_usec)) / 1000.0;
+  ROS_DEBUG("scan matcher total duration: %.1f ms", dur_total);
 }
 
 void LaserScanMatcher::PointCloudToLDP(const PointCloudT::ConstPtr& cloud,
@@ -506,29 +498,29 @@ void LaserScanMatcher::PointCloudToLDP(const PointCloudT::ConstPtr& cloud,
   {
     // calculate position in laser frame
 
-    if (!is_nan(cloud->points[i].z))
+    if (is_nan(cloud->points[i].x) || is_nan(cloud->points[i].y))
     {
-      // fill in laser scan data
-
-      ldp->valid[i] = 1;
-
-      ldp->points[i].p[0] = cloud->points[i].x;
-      ldp->points[i].p[1] = cloud->points[i].y;
-
-      // these are fake, but csm complains if left empty
-      ldp->readings[i] = 1.0;
+      ROS_WARN("Laser Scan Matcher: Cloud input contains NaN values. \
+                Please use a filtered cloud input.");
     }
     else
     {
-      ldp->valid[i] = 0;
-
-      // these are fake, but csm complains if left empty
-      ldp->readings[i] = -1;  // for invalid range
+      double r = sqrt(cloud->points[i].x * cloud->points[i].x + 
+                      cloud->points[i].y * cloud->points[i].y);
+      
+      if (r > cloud_range_min_ && r < cloud_range_max_)
+      {
+        ldp->valid[i] = 1;
+        ldp->readings[i] = r;
+      }
+      else
+      {
+        ldp->valid[i] = 0;
+        ldp->readings[i] = -1;  // for invalid range
+      }
     }
 
-    // these are fake, but csm complains if left empty
-    ldp->theta[i] = min_cloud_angle_ + (double)i * cloud_angle_inrement_;
-
+    ldp->theta[i] = atan2(cloud->points[i].y, cloud->points[i].x);
     ldp->cluster[i]  = -1;
   }
 
@@ -561,22 +553,15 @@ void LaserScanMatcher::laserScanToLDP(const sensor_msgs::LaserScan::ConstPtr& sc
       // fill in laser scan data  
 
       ldp->valid[i] = 1;
-
-      ldp->points[i].p[0] = r * a_cos_[i];
-      ldp->points[i].p[1] = r * a_sin_[i];
-
-      // these are not needed, but csm complains if left empty
       ldp->readings[i] = r;   
-      ldp->theta[i]    = scan_msg->angle_min + i * scan_msg->angle_increment; 
     }
     else
     {
       ldp->valid[i] = 0;
-
-      // these are not needed, but csm complains if left empty
       ldp->readings[i] = -1;  // for invalid range
-      ldp->theta[i]    = scan_msg->angle_min + i * scan_msg->angle_increment;
     }
+
+    ldp->theta[i]    = scan_msg->angle_min + i * scan_msg->angle_increment;
 
     ldp->cluster[i]  = -1;
   }
