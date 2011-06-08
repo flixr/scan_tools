@@ -14,10 +14,6 @@ rosbuild_init()
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
-#uncomment if you have defined messages
-#rosbuild_genmsg()
-#uncomment if you have defined services
-#rosbuild_gensrv()
 
 ################################################################################
 # CSM
@@ -49,18 +45,16 @@ ENDIF(${CSM_FOUND})
 
 ################################################################################
 
-rosbuild_add_library (scan_matcher src/laser_scan_matcher.cpp)         
-
-target_link_libraries(scan_matcher ${CSM_LIBRARIES})
+# create laser_scan_matcher library
+rosbuild_add_library (laser_scan_matcher src/laser_scan_matcher.cpp)         
+target_link_libraries(laser_scan_matcher ${CSM_LIBRARIES})
 
 # create laser_scan_matcher nodelet library
 rosbuild_add_library (laser_scan_matcher_nodelet src/laser_scan_matcher_nodelet.cpp)         
-
-target_link_libraries(laser_scan_matcher_nodelet scan_matcher)
+target_link_libraries(laser_scan_matcher_nodelet laser_scan_matcher)
 
 # create laser_scan_matcher executable
 rosbuild_add_executable(laser_scan_matcher_node src/laser_scan_matcher_node.cpp)
-
-target_link_libraries(laser_scan_matcher_node scan_matcher)
+target_link_libraries(laser_scan_matcher_node laser_scan_matcher)
 
 
