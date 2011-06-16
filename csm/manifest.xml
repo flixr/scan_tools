@@ -1,15 +1,15 @@
 <package>
-  <description brief="csm_install">
+  <description brief="csm">
 
      A meta-package that downloads and installs Andrea Censi's Canonical Scan Matcher locally.
      Patches are applied to accept scans in cartesian (x,y) coordinates.
      More about CSM: http://www.cds.caltech.edu/~andrea/research/sw/csm.html
 
   </description>
-  <author>Ivan Dryanovski</author>
+  <author>Ivan Dryanovski, William Morris</author>
   <license>GPL</license>
   <review status="unreviewed" notes=""/>
-  <url>http://ros.org/wiki/csm_install</url>
+  <url>http://ros.org/wiki/csm</url>
   <rosdep name="gsl"/>
 
 </package>
