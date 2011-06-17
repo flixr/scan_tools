@@ -4,8 +4,8 @@
   The laser_ortho_projector package calculates orthogonal projections of LaserScan messages. 
 
   </description>
-  <author>Ivan Dryanovski</author>
-  <license>GPL</license>
+  <author>Ivan Dryanovski, William Morris</author>
+  <license url="http://www.opensource.org/licenses/BSD-3-Clause">BSD</license>
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/laser_ortho_projector</url>
 
