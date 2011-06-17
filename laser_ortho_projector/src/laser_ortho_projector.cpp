@@ -48,11 +48,11 @@ LaserOrthoProjector::LaserOrthoProjector (ros::NodeHandle nh, ros::NodeHandle nh
   // **** parameters
 
   if (!nh_private_.getParam ("fixed_frame", world_frame_))
-    world_frame_ = "world";
+    world_frame_ = "/world";
   if (!nh_private_.getParam ("base_frame", base_frame_))
-    base_frame_ = "base_link";
+    base_frame_ = "/base_link";
   if (!nh_private_.getParam ("ortho_frame", ortho_frame_))
-    ortho_frame_ = "base_ortho";
+    ortho_frame_ = "/base_ortho";
   if (!nh_private_.getParam ("publish_tf", publish_tf_))
     publish_tf_ = false;
   if (!nh_private_.getParam ("use_imu", use_imu_))
