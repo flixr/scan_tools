@@ -21,9 +21,9 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 INCLUDE($ENV{ROS_ROOT}/core/rosbuild/FindPkgConfig.cmake)
 
-rosbuild_find_ros_package(csm_install)
+rosbuild_find_ros_package(csm)
 
-SET(ENV{PKG_CONFIG_PATH} "${csm_install_PACKAGE_PATH}/lib/pkgconfig")
+SET(ENV{PKG_CONFIG_PATH} "${csm_PACKAGE_PATH}/lib/pkgconfig")
 MESSAGE($ENV{PKG_CONFIG_PATH})
 
 # Require we have pkgconfig installed
