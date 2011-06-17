@@ -1,7 +1,7 @@
 <stack>
   <description brief="scan_tools">Scan Manipulation Tools</description>
   <author>Maintained by Ivan Dryanovski, William Morris, Gautier Dumonteil et al</author>
-  <license>GPL</license>  
+  <license>LGPL, BSD, GPL</license>  
   <review status="experimental" notes=""/>
   <url>http://ros.org/wiki/scan_tools</url>
   <depend stack="common" />
