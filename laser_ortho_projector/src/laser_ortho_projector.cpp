@@ -43,8 +43,6 @@ LaserOrthoProjector::LaserOrthoProjector (ros::NodeHandle nh, ros::NodeHandle nh
   nan_point_.y = std::numeric_limits<float>::quiet_NaN();
   nan_point_.z = std::numeric_limits<float>::quiet_NaN();
 
-  cloud_ = boost::make_shared<PointCloudT>();
-
   // **** parameters
 
   if (!nh_private_.getParam ("fixed_frame", world_frame_))
@@ -152,7 +150,7 @@ void LaserOrthoProjector::scanCallback (const sensor_msgs::LaserScan::ConstPtr& 
 
   // **** build and publish projected cloud
 
-  cloud_->points.clear();
+  cloud_ = boost::make_shared<PointCloudT>();
   cloud_->header = scan_msg->header;
   cloud_->header.frame_id = ortho_frame_;
 
