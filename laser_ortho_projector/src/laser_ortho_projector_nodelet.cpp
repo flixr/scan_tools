@@ -31,7 +31,7 @@
 
 typedef scan_tools::LaserOrthoProjectorNodelet LaserOrthoProjectorNodelet;
 
-PLUGINLIB_DECLARE_CLASS (laser_scan_splitter, LaserOrthoProjectorNodelet,
+PLUGINLIB_DECLARE_CLASS (laser_ortho_projector, LaserOrthoProjectorNodelet,
   LaserOrthoProjectorNodelet, nodelet::Nodelet);
 
 void LaserOrthoProjectorNodelet::onInit ()

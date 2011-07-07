@@ -91,8 +91,6 @@ class LaserOrthoProjector
 
     btTransform base_to_laser_; // static, cached
 
-    PointCloudT::Ptr cloud_;
-
     void scanCallback (const sensor_msgs::LaserScan::ConstPtr& scan_msg);
     void imuCallback (const sensor_msgs::Imu::ConstPtr& imu_msg);
     bool getBaseToLaserTf (const sensor_msgs::LaserScan::ConstPtr& scan_msg);
