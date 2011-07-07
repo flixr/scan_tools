@@ -62,8 +62,6 @@ LaserScanMatcher::LaserScanMatcher(ros::NodeHandle nh, ros::NodeHandle nh_privat
   v_y_ = 0;
   v_a_ = 0;
 
-  pose_msg_ = boost::make_shared<geometry_msgs::Pose2D>();
-
   input_.laser[0] = 0.0;
   input_.laser[1] = 0.0; 
   input_.laser[2] = 0.0; 
@@ -463,10 +461,12 @@ void LaserScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time)
 
     if (publish_pose_) 
     {
-      pose_msg_->x = w2b_.getOrigin().getX();
-      pose_msg_->y = w2b_.getOrigin().getY();
-      pose_msg_->theta = getYawFromQuaternion(w2b_.getRotation());
-      pose_publisher_.publish(pose_msg_);
+      geometry_msgs::Pose2D::Ptr pose_msg;
+      pose_msg = boost::make_shared<geometry_msgs::Pose2D>();
+      pose_msg->x = w2b_.getOrigin().getX();
+      pose_msg->y = w2b_.getOrigin().getY();
+      pose_msg->theta = getYawFromQuaternion(w2b_.getRotation());
+      pose_publisher_.publish(pose_msg);
     }
     if (publish_tf_)
     {

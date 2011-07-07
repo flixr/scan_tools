@@ -128,8 +128,6 @@ class LaserScanMatcher
 
     boost::mutex mutex_;
 
-    geometry_msgs::Pose2D::Ptr pose_msg_;
-
     tf::Transform w2b_; // world-to-base tf (pose of base frame)
 
     double v_x_;  // velocity estimated by the alpha-beta tracker
