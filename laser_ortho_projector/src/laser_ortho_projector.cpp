@@ -175,9 +175,9 @@ void LaserOrthoProjector::scanCallback (const sensor_msgs::LaserScan::ConstPtr& 
 
   cloud->width = cloud->points.size();
   cloud->height = 1;
-  cloud->is_dense = true; // no nan's present 
+  cloud->is_dense = true; // no nan's present
 
-  cloud_publisher_.publish (cloud_);
+  cloud_publisher_.publish (cloud);
 }
 
 bool LaserOrthoProjector::getBaseToLaserTf (const sensor_msgs::LaserScan::ConstPtr& scan_msg)
