@@ -27,11 +27,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/*  This package uses Canonical Scan Matcher [1], written by 
+/*  This package uses Canonical Scan Matcher [1], written by
  *  Andrea Censi
  *
- *  [1] A. Censi, "An ICP variant using a point-to-line metric" 
- *  Proceedings of the IEEE International Conference 
+ *  [1] A. Censi, "An ICP variant using a point-to-line metric"
+ *  Proceedings of the IEEE International Conference
  *  on Robotics and Automation (ICRA), 2008
  */
 
@@ -41,16 +41,16 @@ namespace scan_tools
 {
 
 LaserScanMatcher::LaserScanMatcher(ros::NodeHandle nh, ros::NodeHandle nh_private):
-  nh_(nh), 
+  nh_(nh),
   nh_private_(nh_private)
 {
-  ROS_INFO("Starting LaserScanMatcher"); 
+  ROS_INFO("Starting LaserScanMatcher");
 
   // **** init parameters
 
   initParams();
 
-  // **** state variables 
+  // **** state variables
 
   initialized_   = false;
   received_imu_  = false;
@@ -63,8 +63,8 @@ LaserScanMatcher::LaserScanMatcher(ros::NodeHandle nh, ros::NodeHandle nh_privat
   v_a_ = 0;
 
   input_.laser[0] = 0.0;
-  input_.laser[1] = 0.0; 
-  input_.laser[2] = 0.0; 
+  input_.laser[1] = 0.0;
+  input_.laser[2] = 0.0;
 
   // *** subscribers
 
@@ -98,6 +98,11 @@ LaserScanMatcher::LaserScanMatcher(ros::NodeHandle nh, ros::NodeHandle nh_privat
     pose_publisher_  = nh_.advertise<geometry_msgs::Pose2D>(
       pose_topic_, 5);
   }
+
+  if (publish_marker_)
+  {
+    marker_pub_ = nh_.advertise<visualization_msgs::Marker> ("laser_odom_marker", 1);
+  }
 }
 
 LaserScanMatcher::~LaserScanMatcher()
@@ -110,10 +115,10 @@ void LaserScanMatcher::initParams()
   if (!nh_private_.getParam ("base_frame", base_frame_))
     base_frame_ = "base_link";
   if (!nh_private_.getParam ("fixed_frame", fixed_frame_))
-    fixed_frame_ = "world"; 
+    fixed_frame_ = "world";
 
   // **** input type - laser scan, or point clouds?
-  // if false, will subscrive to LaserScan msgs on /scan. 
+  // if false, will subscrive to LaserScan msgs on /scan.
   // if true, will subscrive to PointCloud2 msgs on /cloud
 
   if (!nh_private_.getParam ("use_cloud_input", use_cloud_input_))
@@ -144,13 +149,12 @@ void LaserScanMatcher::initParams()
     use_alpha_beta_ = false;
 
   // **** How to publish the output?
-  // tf (fixed_frame->base_frame), 
+  // tf (fixed_frame->base_frame),
   // pose message (pose of base frame in the fixed frame)
 
-  if (!nh_private_.getParam ("publish_tf", publish_tf_))
-    publish_tf_ = true;
-  if (!nh_private_.getParam ("publish_pose", publish_pose_))
-    publish_pose_ = true;
+  nh_private_.param("publish_tf", publish_tf_, true);
+  nh_private_.param("publish_pose", publish_pose_, true);
+  nh_private_.param("publish_marker", publish_marker_, false);
 
   if (!nh_private_.getParam ("alpha", alpha_))
     alpha_ = 1.0;
@@ -248,7 +252,7 @@ void LaserScanMatcher::initParams()
 
   //If you already have a guess of the solution, you can compute the polar angle
 	//	of the points of one scan in the new position. If the polar angle is not a monotone
-	//	function of the readings index, it means that the surface is not visible in the 
+	//	function of the readings index, it means that the surface is not visible in the
 	//	next position. If it is not visible, then we don't use it for matching.
   if (!nh_private_.getParam ("do_visibility_test", input_.do_visibility_test))
     input_.do_visibility_test = 0;
@@ -265,12 +269,12 @@ void LaserScanMatcher::initParams()
   if (!nh_private_.getParam ("debug_verify_tricks", input_.debug_verify_tricks))
     input_.debug_verify_tricks = 0;
 
-  // If 1, the field 'true_alpha' (or 'alpha') in the first scan is used to compute the 
+  // If 1, the field 'true_alpha' (or 'alpha') in the first scan is used to compute the
   // incidence beta, and the factor (1/cos^2(beta)) used to weight the correspondence.");
   if (!nh_private_.getParam ("use_ml_weights", input_.use_ml_weights))
     input_.use_ml_weights = 0;
 
-  // If 1, the field 'readings_sigma' in the second scan is used to weight the 
+  // If 1, the field 'readings_sigma' in the second scan is used to weight the
   // correspondence by 1/sigma^2
   if (!nh_private_.getParam ("use_sigma_weights", input_.use_sigma_weights))
     input_.use_sigma_weights = 0;
@@ -326,7 +330,7 @@ void LaserScanMatcher::cloudCallback (const PointCloudT::ConstPtr& cloud)
 void LaserScanMatcher::scanCallback (const sensor_msgs::LaserScan::ConstPtr& scan_msg)
 {
   // **** if first scan, cache the tf from base to the scanner
-  
+
   if (!initialized_)
   {
     createCache(scan_msg);    // caches the sin and cos of all angles
@@ -338,7 +342,7 @@ void LaserScanMatcher::scanCallback (const sensor_msgs::LaserScan::ConstPtr& sca
       return;
     }
 
-    laserScanToLDP(scan_msg, prev_ldp_scan_); 
+    laserScanToLDP(scan_msg, prev_ldp_scan_);
     last_icp_time_ = scan_msg->header.stamp;
     last_imu_yaw_ = latest_imu_yaw_;
     last_odom_ = latest_odom_;
@@ -359,7 +363,7 @@ void LaserScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time)
   // The scans are always in the laser frame
   // The reference scan (prevLDPcan_) has a pose of 0
   // The new scan (currLDPScan) has a pose equal to the movement
-  // of the laser in the laser frame since the last scan 
+  // of the laser in the laser frame since the last scan
   // The computed correction is then propagated using the tf machinery
 
   prev_ldp_scan_->odometry[0] = 0;
@@ -395,21 +399,21 @@ void LaserScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time)
 
   tf::Transform pr_ch_l;
   pr_ch_l = laser_to_base_ * pr_ch * base_to_laser_;
-  
+
   input_.first_guess[0] = pr_ch_l.getOrigin().getX();
   input_.first_guess[1] = pr_ch_l.getOrigin().getY();
   input_.first_guess[2] = getYawFromQuaternion(pr_ch_l.getRotation());
 
 /*
-  printf("%f, %f, %f\n", input_.first_guess[0],  
-                         input_.first_guess[1], 
+  printf("%f, %f, %f\n", input_.first_guess[0],
+                         input_.first_guess[1],
                          input_.first_guess[2]);
 */
   // *** scan match - using point to line icp from CSM
 
   sm_icp(&input_, &output_);
 
-  if (output_.valid) 
+  if (output_.valid)
   {
     // the correction of the laser's position, in the laser frame
 
@@ -428,7 +432,7 @@ void LaserScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time)
 
       double dx = w2b_new.getOrigin().getX() - w2b_.getOrigin().getX();
       double dy = w2b_new.getOrigin().getY() - w2b_.getOrigin().getY();
-      double da = getYawFromQuaternion(w2b_new.getRotation()) - 
+      double da = getYawFromQuaternion(w2b_new.getRotation()) -
                   getYawFromQuaternion(w2b_.getRotation());
 
       double r_x = dx - pr_ch_x;
@@ -459,7 +463,7 @@ void LaserScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time)
 
     // **** publish
 
-    if (publish_pose_) 
+    if (publish_pose_)
     {
       geometry_msgs::Pose2D::Ptr pose_msg;
       pose_msg = boost::make_shared<geometry_msgs::Pose2D>();
@@ -472,6 +476,39 @@ void LaserScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time)
     {
       tf::StampedTransform transform_msg (w2b_, time, fixed_frame_, base_frame_);
       tf_broadcaster_.sendTransform (transform_msg);
+    }
+    if (publish_marker_)
+    {
+      visualization_msgs::Marker marker;
+      marker.header.frame_id = "/world";
+      marker.header.stamp = ros::Time::now();
+      marker.ns = "laser_odom";
+      marker.id = 0;
+      marker.type = visualization_msgs::Marker::ARROW;
+      marker.action = visualization_msgs::Marker::ADD;
+
+      // Set the pose of the marker.  This is a full 6DOF pose relative to the frame/time specified in the header
+      marker.pose.position.x = w2b_.getOrigin().getX();
+      marker.pose.position.y = w2b_.getOrigin().getY();
+      marker.pose.position.z = 0;
+      tf::Quaternion q(getYawFromQuaternion(w2b_.getRotation()), 0.0, 0.0);
+      marker.pose.orientation.x = q.x();
+      marker.pose.orientation.y = q.y();
+      marker.pose.orientation.z = q.z();
+      marker.pose.orientation.w = q.w();
+
+      // Set the scale of the marker -- 1x1x1 here means 1m on a side
+      marker.scale.x = 0.5;
+      marker.scale.y = 0.2;
+      marker.scale.z = 0.2;
+      marker.color.r = 0.0f;
+      marker.color.g = 1.0f;
+      marker.color.b = 0.0f;
+      marker.color.a = 1.0;
+      marker.lifetime = ros::Duration();
+
+      // Publish the marker
+      marker_pub_.publish(marker);
     }
   }
   else
@@ -514,9 +551,9 @@ void LaserScanMatcher::PointCloudToLDP(const PointCloudT::ConstPtr& cloud,
     }
     else
     {
-      double r = sqrt(cloud->points[i].x * cloud->points[i].x + 
+      double r = sqrt(cloud->points[i].x * cloud->points[i].x +
                       cloud->points[i].y * cloud->points[i].y);
-      
+
       if (r > cloud_range_min_ && r < cloud_range_max_)
       {
         ldp->valid[i] = 1;
@@ -559,10 +596,10 @@ void LaserScanMatcher::laserScanToLDP(const sensor_msgs::LaserScan::ConstPtr& sc
 
     if (r > scan_msg->range_min && r < scan_msg->range_max)
     {
-      // fill in laser scan data  
+      // fill in laser scan data
 
       ldp->valid[i] = 1;
-      ldp->readings[i] = r;   
+      ldp->readings[i] = r;
     }
     else
     {
@@ -577,7 +614,7 @@ void LaserScanMatcher::laserScanToLDP(const sensor_msgs::LaserScan::ConstPtr& sc
 
   ldp->min_theta = ldp->theta[0];
   ldp->max_theta = ldp->theta[n-1];
- 
+
   ldp->odometry[0] = 0.0;
   ldp->odometry[1] = 0.0;
   ldp->odometry[2] = 0.0;
@@ -589,7 +626,7 @@ void LaserScanMatcher::laserScanToLDP(const sensor_msgs::LaserScan::ConstPtr& sc
 
 void LaserScanMatcher::createCache (const sensor_msgs::LaserScan::ConstPtr& scan_msg)
 {
-  a_cos_.clear(); 
+  a_cos_.clear();
   a_sin_.clear();
 
   for (unsigned int i = 0; i < scan_msg->ranges.size(); ++i)
@@ -628,7 +665,7 @@ bool LaserScanMatcher::getBaseToLaserTf (const std::string& frame_id)
 
 // returns the predicted change in pose (in fixed frame)
 // since the last time we did icp
-void LaserScanMatcher::getPrediction(double& pr_ch_x, double& pr_ch_y, 
+void LaserScanMatcher::getPrediction(double& pr_ch_x, double& pr_ch_y,
                                      double& pr_ch_a, double dt)
 {
   boost::mutex::scoped_lock(mutex_);
@@ -650,10 +687,10 @@ void LaserScanMatcher::getPrediction(double& pr_ch_x, double& pr_ch_y,
   // **** use wheel odometry
   if (use_odom_ && received_odom_)
   {
-    pr_ch_x = latest_odom_.pose.pose.position.x - 
+    pr_ch_x = latest_odom_.pose.pose.position.x -
               last_odom_.pose.pose.position.x;
 
-    pr_ch_y = latest_odom_.pose.pose.position.y - 
+    pr_ch_y = latest_odom_.pose.pose.position.y -
               last_odom_.pose.pose.position.y;
 
     pr_ch_a = getYawFromQuaternion(latest_odom_.pose.pose.orientation) -
