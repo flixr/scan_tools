@@ -27,11 +27,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/*  This package uses Canonical Scan Matcher [1], written by 
+/*  This package uses Canonical Scan Matcher [1], written by
  *  Andrea Censi
  *
- *  [1] A. Censi, "An ICP variant using a point-to-line metric" 
- *  Proceedings of the IEEE International Conference 
+ *  [1] A. Censi, "An ICP variant using a point-to-line metric"
+ *  Proceedings of the IEEE International Conference
  *  on Robotics and Automation (ICRA), 2008
  */
 
@@ -47,13 +47,14 @@
 #include <tf/transform_datatypes.h>
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
+#include <visualization_msgs/Marker.h>
 
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
 #include <pcl_ros/point_cloud.h>
 
 #include <csm/csm_all.h>  // csm defines min and max, but Eigen complains
-#undef min 
+#undef min
 #undef max
 
 namespace scan_tools
@@ -75,7 +76,7 @@ class LaserScanMatcher
 {
   private:
 
-    // **** ros  
+    // **** ros
 
     ros::NodeHandle nh_;
     ros::NodeHandle nh_private_;
@@ -94,6 +95,7 @@ class LaserScanMatcher
     ros::Publisher  test_pub_;
     ros::Publisher  pose_publisher_;
     ros::Publisher  vel_publisher_;
+    ros::Publisher  marker_pub_;
 
     // **** parameters
 
@@ -103,6 +105,7 @@ class LaserScanMatcher
     double cloud_range_max_;
     bool publish_tf_;
     bool publish_pose_;
+    bool publish_marker_;
 
     bool use_cloud_input_;
 
@@ -131,7 +134,7 @@ class LaserScanMatcher
     tf::Transform w2b_; // world-to-base tf (pose of base frame)
 
     double v_x_;  // velocity estimated by the alpha-beta tracker
-    double v_y_;  
+    double v_y_;
     double v_a_;
 
     ros::Time last_icp_time_;
@@ -168,7 +171,7 @@ class LaserScanMatcher
     bool getBaseToLaserTf (const std::string& frame_id);
     void initParams();
 
-    void getPrediction(double& pr_ch_x, double& pr_ch_y, 
+    void getPrediction(double& pr_ch_x, double& pr_ch_y,
                        double& pr_ch_a, double dt);
 
     double getYawFromQuaternion(const geometry_msgs::Quaternion& quaternion);

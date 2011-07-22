@@ -12,12 +12,12 @@
   <depend package="roscpp"/>
   <depend package="nodelet"/>
   <depend package="sensor_msgs"/>
+  <depend package="visualization_msgs"/>
   <depend package="tf"/>
   <depend package="pcl"/>
   <depend package="pcl_ros"/>
   <depend package="geometry_msgs"/>
   <depend package="nav_msgs"/>
-  <depend package="sensor_msgs"/>
   <depend package="csm"/>
 
   <export>
