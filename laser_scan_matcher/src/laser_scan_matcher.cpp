@@ -101,7 +101,7 @@ LaserScanMatcher::LaserScanMatcher(ros::NodeHandle nh, ros::NodeHandle nh_privat
   if (publish_dpose_)
   {
     dpose_publisher_  = nh_.advertise<geometry_msgs::Pose2D>(
-      pose_topic_, 5);
+      dpose_topic_, 5);
   }
 
   if (publish_marker_)
