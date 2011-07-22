@@ -48,6 +48,7 @@
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
 #include <visualization_msgs/Marker.h>
+#include <laser_scan_matcher/LaserOdometry.h>
 
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
@@ -68,6 +69,7 @@ const std::string imu_topic_   = "imu";
 
 // outputs
 const std::string pose_topic_ = "pose2D";
+const std::string dpose_topic_ = "dpose2D";
 
 typedef pcl::PointXYZ           PointT;
 typedef pcl::PointCloud<PointT> PointCloudT;
@@ -94,6 +96,7 @@ class LaserScanMatcher
 
     ros::Publisher  test_pub_;
     ros::Publisher  pose_publisher_;
+    ros::Publisher  dpose_publisher_;
     ros::Publisher  vel_publisher_;
     ros::Publisher  marker_pub_;
 
@@ -105,6 +108,7 @@ class LaserScanMatcher
     double cloud_range_max_;
     bool publish_tf_;
     bool publish_pose_;
+    bool publish_dpose_;
     bool publish_marker_;
 
     bool use_cloud_input_;

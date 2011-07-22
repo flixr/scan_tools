@@ -45,6 +45,9 @@ ENDIF(${CSM_FOUND})
 
 ################################################################################
 
+#create messages
+rosbuild_genmsg()
+
 # create laser_scan_matcher library
 rosbuild_add_library (laser_scan_matcher src/laser_scan_matcher.cpp)         
 target_link_libraries(laser_scan_matcher ${CSM_LIBRARIES})

@@ -98,6 +98,11 @@ LaserScanMatcher::LaserScanMatcher(ros::NodeHandle nh, ros::NodeHandle nh_privat
     pose_publisher_  = nh_.advertise<geometry_msgs::Pose2D>(
       pose_topic_, 5);
   }
+  if (publish_dpose_)
+  {
+    dpose_publisher_  = nh_.advertise<laser_scan_matcher::LaserOdometry>(
+      dpose_topic_, 5);
+  }
 
   if (publish_marker_)
   {
@@ -154,6 +159,7 @@ void LaserScanMatcher::initParams()
 
   nh_private_.param("publish_tf", publish_tf_, true);
   nh_private_.param("publish_pose", publish_pose_, true);
+  nh_private_.param("publish_dpose", publish_dpose_, true);
   nh_private_.param("publish_marker", publish_marker_, false);
 
   if (!nh_private_.getParam ("alpha", alpha_))
@@ -383,7 +389,9 @@ void LaserScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time)
 
   // **** estimated change since last scan
 
-  ros::Time new_icp_time = ros::Time::now();
+  // this should be the time of the current scan!
+  // ros::Time new_icp_time = ros::Time::now();
+  ros::Time new_icp_time = time;
   ros::Duration dur = new_icp_time - last_icp_time_;
   double dt = dur.toSec();
 
@@ -462,6 +470,25 @@ void LaserScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time)
     }
 
     // **** publish
+
+    if (publish_dpose_)
+    {
+      laser_scan_matcher::LaserOdometry::Ptr dpose_msg;
+      dpose_msg = boost::make_shared<laser_scan_matcher::LaserOdometry>();
+      dpose_msg->pose.x = corr_ch.getOrigin().getX();
+      dpose_msg->pose.y = corr_ch.getOrigin().getY();
+      dpose_msg->pose.theta = getYawFromQuaternion(corr_ch.getRotation());
+      dpose_msg->begin.data = last_icp_time_;
+      dpose_msg->end.data = new_icp_time;
+	  for(int i=0;i<9; i++){
+	      if(input_.do_compute_covariance){
+			  dpose_msg->error[i] = gsl_matrix_get(output_.cov_x_m, i%3, (int)(i/3) );
+	      }else{
+	    	  dpose_msg->error[i] = 0;
+	      }
+	  }
+      dpose_publisher_.publish(dpose_msg);
+    }
 
     if (publish_pose_)
     {
