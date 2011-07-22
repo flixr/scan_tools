@@ -94,6 +94,7 @@ class LaserScanMatcher
 
     ros::Publisher  test_pub_;
     ros::Publisher  pose_publisher_;
+    ros::Publisher  dpose_publisher_;
     ros::Publisher  vel_publisher_;
     ros::Publisher  marker_pub_;
 
@@ -105,6 +106,7 @@ class LaserScanMatcher
     double cloud_range_max_;
     bool publish_tf_;
     bool publish_pose_;
+    bool publish_dpose_;
     bool publish_marker_;
 
     bool use_cloud_input_;
