@@ -514,8 +514,8 @@ void LaserScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time)
 
       // Set the scale of the marker -- 1x1x1 here means 1m on a side
       marker.scale.x = 0.5;
-      marker.scale.y = 0.2;
-      marker.scale.z = 0.2;
+      marker.scale.y = 0.5;
+      marker.scale.z = 0.5;
       marker.color.r = 0.0f;
       marker.color.g = 1.0f;
       marker.color.b = 0.0f;
