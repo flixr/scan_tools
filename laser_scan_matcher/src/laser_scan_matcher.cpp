@@ -506,7 +506,8 @@ void LaserScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time)
       marker.pose.position.x = w2b_.getOrigin().getX();
       marker.pose.position.y = w2b_.getOrigin().getY();
       marker.pose.position.z = 0;
-      tf::Quaternion q(getYawFromQuaternion(w2b_.getRotation()), 0.0, 0.0);
+      tf::Quaternion q;
+      q.setRPY(0.0, 0.0, getYawFromQuaternion(w2b_.getRotation()));
       marker.pose.orientation.x = q.x();
       marker.pose.orientation.y = q.y();
       marker.pose.orientation.z = q.z();
