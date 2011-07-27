@@ -48,6 +48,7 @@
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
 #include <visualization_msgs/Marker.h>
+#include <laser_scan_matcher/LaserOdometry.h>
 
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
