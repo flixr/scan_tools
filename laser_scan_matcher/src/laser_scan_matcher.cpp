@@ -100,7 +100,7 @@ LaserScanMatcher::LaserScanMatcher(ros::NodeHandle nh, ros::NodeHandle nh_privat
   }
   if (publish_dpose_)
   {
-    dpose_publisher_  = nh_.advertise<geometry_msgs::Pose2D>(
+    dpose_publisher_  = nh_.advertise<laser_scan_matcher::LaserOdometry>(
       dpose_topic_, 5);
   }
 
@@ -478,8 +478,8 @@ void LaserScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time)
       dpose_msg->pose.x = corr_ch.getOrigin().getX();
       dpose_msg->pose.y = corr_ch.getOrigin().getY();
       dpose_msg->pose.theta = getYawFromQuaternion(corr_ch.getRotation());
-      dpose_msg->begin = last_icp_time_;
-      dpose_msg->end = new_icp_time;
+      dpose_msg->begin.data = last_icp_time_;
+      dpose_msg->end.data = new_icp_time;
       dpose_publisher_.publish(dpose_msg);
     }
     if (publish_pose_)
