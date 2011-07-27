@@ -68,6 +68,7 @@ const std::string imu_topic_   = "imu";
 
 // outputs
 const std::string pose_topic_ = "pose2D";
+const std::string dpose_topic_ = "dpose2D";
 
 typedef pcl::PointXYZ           PointT;
 typedef pcl::PointCloud<PointT> PointCloudT;

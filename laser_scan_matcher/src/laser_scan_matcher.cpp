@@ -101,7 +101,7 @@ LaserScanMatcher::LaserScanMatcher(ros::NodeHandle nh, ros::NodeHandle nh_privat
   if (publish_dpose_)
   {
     dpose_publisher_  = nh_.advertise<geometry_msgs::Pose2D>(
-      pose_topic_, 5);
+      dpose_topic_, 5);
   }
 
   if (publish_marker_)
@@ -510,7 +510,8 @@ void LaserScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time)
       marker.pose.position.x = w2b_.getOrigin().getX();
       marker.pose.position.y = w2b_.getOrigin().getY();
       marker.pose.position.z = 0;
-      tf::Quaternion q(getYawFromQuaternion(w2b_.getRotation()), 0.0, 0.0);
+      tf::Quaternion q;
+      q.setRPY(0.0, 0.0, getYawFromQuaternion(w2b_.getRotation()));
       marker.pose.orientation.x = q.x();
       marker.pose.orientation.y = q.y();
       marker.pose.orientation.z = q.z();
@@ -518,8 +519,8 @@ void LaserScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time)
 
       // Set the scale of the marker -- 1x1x1 here means 1m on a side
       marker.scale.x = 0.5;
-      marker.scale.y = 0.2;
-      marker.scale.z = 0.2;
+      marker.scale.y = 0.5;
+      marker.scale.z = 0.5;
       marker.color.r = 0.0f;
       marker.color.g = 1.0f;
       marker.color.b = 0.0f;
