@@ -480,8 +480,16 @@ void LaserScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time)
       dpose_msg->pose.theta = getYawFromQuaternion(corr_ch.getRotation());
       dpose_msg->begin.data = last_icp_time_;
       dpose_msg->end.data = new_icp_time;
+	  for(int i=0;i<9; i++){
+	      if(input_.do_compute_covariance){
+			  dpose_msg->error[i] = gsl_matrix_get(output_.cov_x_m, i%3, (int)(i/3) );
+	      }else{
+	    	  dpose_msg->error[i] = 0;
+	      }
+	  }
       dpose_publisher_.publish(dpose_msg);
     }
+
     if (publish_pose_)
     {
       geometry_msgs::Pose2D::Ptr pose_msg;
