@@ -125,27 +125,36 @@ void LaserOrthoProjector::scanCallback (const sensor_msgs::LaserScan::ConstPtr& 
   }
 
   double roll, pitch, yaw;
-  btMatrix3x3 m (world_to_base.getRotation ());
+//  btMatrix3x3 m (world_to_base.getRotation ());
+//  m.getRPY (roll, pitch, yaw);
+  btMatrix3x3 m (world_to_base.getRotation().inverse());
   m.getRPY (roll, pitch, yaw);
+
 
   // **** calculate and publish transform between world and ortho frames
 
-  btTransform world_to_ortho;
+  btTransform base_to_ortho;
 
   btQuaternion rotation;
-  rotation.setRPY (0.0, 0.0, yaw);
-  world_to_ortho.setRotation (rotation);
+  // rotation.setRPY (0.0, 0.0, yaw);
+  // we want the ortho frame to be fixed on the base
+  rotation.setRPY (roll, pitch, yaw);
+  base_to_ortho.setRotation (rotation);
 
   btVector3 origin;
-  origin.setValue (world_to_base.getOrigin().getX(),
-                   world_to_base.getOrigin().getY(),
+//  origin.setValue (world_to_base.getOrigin().getX(),
+//                   world_to_base.getOrigin().getY(),
+//                   0.0);
+  // we want the ortho frame to be fixed on the base
+  origin.setValue (0.0,
+                   0.0,
                    0.0);
-  world_to_ortho.setOrigin (origin);
+  base_to_ortho.setOrigin (origin);
 
   if (publish_tf_)
   {
-    tf::StampedTransform world_to_ortho_tf(world_to_ortho, scan_msg->header.stamp, world_frame_, ortho_frame_);
-    tf_broadcaster_.sendTransform (world_to_ortho_tf);
+    tf::StampedTransform base_to_ortho_tf(base_to_ortho, scan_msg->header.stamp, base_frame_, ortho_frame_);
+    tf_broadcaster_.sendTransform (base_to_ortho_tf);
   }
 
   // **** build and publish projected cloud
@@ -162,7 +171,7 @@ void LaserOrthoProjector::scanCallback (const sensor_msgs::LaserScan::ConstPtr& 
     if (r > scan_msg->range_min)
     {
       btVector3 p(r * a_cos_[i], r * a_sin_[i], 0.0);
-      p = world_to_ortho.inverse() * world_to_base * base_to_laser_ * p;
+      p = base_to_ortho.inverse() * base_to_laser_ * p;
       p.setZ(0.0);
 
       PointT point;
