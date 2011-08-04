@@ -125,18 +125,18 @@ void LaserOrthoProjector::scanCallback (const sensor_msgs::LaserScan::ConstPtr& 
   }
 
   double roll, pitch, yaw;
-  btMatrix3x3 m (world_to_base.getRotation().inverse());
-  m.getRPY (roll, pitch, yaw);
+  btMatrix3x3 m(world_to_base.getRotation());
+  m.getRPY(roll, pitch, yaw);
 
 
   // **** calculate and publish transform between world and ortho frames
-
   btTransform base_to_ortho;
 
   btQuaternion rotation;
   // we want the ortho frame to be fixed on the base
-  rotation.setRPY (roll, pitch, 0.0);
-  base_to_ortho.setRotation (rotation);
+  // ortho projected into the plane, so only roll and pitch
+  rotation.setRPY(roll, pitch, 0.0);
+  base_to_ortho.setRotation(rotation.inverse());
 
   btVector3 origin;
   // we want the ortho frame to be fixed on the base, maybe set z though?
