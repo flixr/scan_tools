@@ -53,8 +53,10 @@ LaserScanMatcher::LaserScanMatcher(ros::NodeHandle nh, ros::NodeHandle nh_privat
   // **** state variables
 
   initialized_   = false;
+  pose_initialized_ = false;
   received_imu_  = false;
   received_odom_ = false;
+  received_pose2d_ = false;
 
   w2b_.setIdentity();
 
@@ -90,6 +92,10 @@ LaserScanMatcher::LaserScanMatcher(ros::NodeHandle nh, ros::NodeHandle nh_privat
   {
     odom_subscriber_ = nh_.subscribe(
       odom_topic_, 1, &LaserScanMatcher::odomCallback, this);
+  }
+  if (init_pose2d_)
+  {
+    pose2d_subscriber_ = nh_.subscribe(pose2d_topic_, 1, &LaserScanMatcher::pose2dCallback, this);
   }
 
   // **** pose publisher
@@ -161,6 +167,8 @@ void LaserScanMatcher::initParams()
   nh_private_.param("publish_pose", publish_pose_, true);
   nh_private_.param("publish_dpose", publish_dpose_, true);
   nh_private_.param("publish_marker", publish_marker_, false);
+
+  nh_private_.param("init_pose2d", init_pose2d_, false);
 
   if (!nh_private_.getParam ("alpha", alpha_))
     alpha_ = 1.0;
@@ -308,6 +316,16 @@ void LaserScanMatcher::odomCallback (const nav_msgs::Odometry::ConstPtr& odom_ms
   }
 }
 
+void LaserScanMatcher::pose2dCallback (const geometry_msgs::Pose2D::ConstPtr& pose2d_msg)
+{
+  boost::mutex::scoped_lock lock(mutex_);
+  latest_pose2d_ = *pose2d_msg;
+  if (!received_pose2d_)
+  {
+    received_pose2d_ = true;
+  }
+}
+
 void LaserScanMatcher::cloudCallback (const PointCloudT::ConstPtr& cloud)
 {
   // **** if first scan, cache the tf from base to the scanner
@@ -320,6 +338,25 @@ void LaserScanMatcher::cloudCallback (const PointCloudT::ConstPtr& cloud)
     last_imu_yaw_ = latest_imu_yaw_;
     last_odom_ = latest_odom_;
     initialized_ = true;
+  }
+
+  if (init_pose2d_ && !pose_initialized_)
+  {
+    if (!received_pose2d_)
+    {
+      ROS_INFO("Waiting for initial pose!");
+      return;
+    }
+
+    //use received pose2d to initialize
+    w2b_.setOrigin(btVector3(latest_pose2d_.x, latest_pose2d_.y, 0.0));
+    btQuaternion q;
+    q.setRPY(0.0, 0.0, latest_pose2d_.theta);
+    w2b_.setRotation(q);
+    pose_initialized_ = true;
+
+    //we can now unsubscribe from pose2d as the pose is initialized
+    pose2d_subscriber_.shutdown();
   }
 
   // get the non-static tf from base to laser
