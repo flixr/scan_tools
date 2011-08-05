@@ -172,7 +172,7 @@ class LaserScanMatcher
     void imuCallback (const sensor_msgs::ImuPtr& imu_msg);
 
     void createCache (const sensor_msgs::LaserScan::ConstPtr& scan_msg);
-    bool getBaseToLaserTf (const std::string& frame_id);
+    bool getBaseToLaserTf (const std::string& frame_id, const ros::Time& t);
     void initParams();
 
     void getPrediction(double& pr_ch_x, double& pr_ch_y,
