@@ -66,6 +66,7 @@ const std::string scan_topic_  = "scan";
 const std::string cloud_topic_ = "cloud";
 const std::string odom_topic_  = "odom";
 const std::string imu_topic_   = "imu";
+const std::string pose2d_topic_ = "pose2d";
 
 // outputs
 const std::string pose_topic_ = "pose2D";
@@ -87,6 +88,7 @@ class LaserScanMatcher
     ros::Subscriber cloud_subscriber_;
     ros::Subscriber odom_subscriber_;
     ros::Subscriber imu_subscriber_;
+    ros::Subscriber pose2d_subscriber_;
 
     tf::TransformListener    tf_listener_;
     tf::TransformBroadcaster tf_broadcaster_;
@@ -94,11 +96,11 @@ class LaserScanMatcher
     tf::Transform base_to_laser_;
     tf::Transform laser_to_base_;
 
-    ros::Publisher  test_pub_;
-    ros::Publisher  pose_publisher_;
-    ros::Publisher  dpose_publisher_;
-    ros::Publisher  vel_publisher_;
-    ros::Publisher  marker_pub_;
+    ros::Publisher test_pub_;
+    ros::Publisher pose_publisher_;
+    ros::Publisher dpose_publisher_;
+    ros::Publisher vel_publisher_;
+    ros::Publisher marker_pub_;
 
     // **** parameters
 
@@ -112,6 +114,8 @@ class LaserScanMatcher
     bool publish_marker_;
 
     bool use_cloud_input_;
+
+    bool init_pose2d_;
 
     // **** What predictions are available to speed up the ICP?
     // 1) imu - [theta] from imu yaw angle - /odom topic
@@ -129,9 +133,11 @@ class LaserScanMatcher
     // **** state variables
 
     bool initialized_;
+    bool pose_initialized_;
 
     bool received_imu_;
     bool received_odom_;
+    bool received_pose2d_;
 
     boost::mutex mutex_;
 
@@ -148,6 +154,7 @@ class LaserScanMatcher
 
     nav_msgs::Odometry latest_odom_;
     nav_msgs::Odometry last_odom_;
+    geometry_msgs::Pose2D latest_pose2d_;
 
     std::vector<double> a_cos_;
     std::vector<double> a_sin_;
@@ -170,6 +177,7 @@ class LaserScanMatcher
 
     void odomCallback (const nav_msgs::Odometry::ConstPtr& odom_msg);
     void imuCallback (const sensor_msgs::ImuPtr& imu_msg);
+    void pose2dCallback (const geometry_msgs::Pose2D::ConstPtr& pose2d_msg);
 
     void createCache (const sensor_msgs::LaserScan::ConstPtr& scan_msg);
     bool getBaseToLaserTf (const std::string& frame_id, const ros::Time& t);
