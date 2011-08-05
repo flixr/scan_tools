@@ -288,7 +288,7 @@ void LaserScanMatcher::initParams()
 
 void LaserScanMatcher::imuCallback (const sensor_msgs::ImuPtr& imu_msg)
 {
-  boost::mutex::scoped_lock(mutex_);
+  boost::mutex::scoped_lock lock(mutex_);
   latest_imu_yaw_ = getYawFromQuaternion(imu_msg->orientation);
   if (!received_imu_)
   {
@@ -299,7 +299,7 @@ void LaserScanMatcher::imuCallback (const sensor_msgs::ImuPtr& imu_msg)
 
 void LaserScanMatcher::odomCallback (const nav_msgs::Odometry::ConstPtr& odom_msg)
 {
-  boost::mutex::scoped_lock(mutex_);
+  boost::mutex::scoped_lock lock(mutex_);
   latest_odom_ = *odom_msg;
   if (!received_odom_)
   {
@@ -314,18 +314,19 @@ void LaserScanMatcher::cloudCallback (const PointCloudT::ConstPtr& cloud)
 
   if (!initialized_)
   {
-    // cache the static tf from base to laser
-    if (!getBaseToLaserTf(cloud->header.frame_id))
-    {
-      ROS_WARN("ScanMatcher: Skipping scan");
-      return;
-    }
 
     PointCloudToLDP(cloud, prev_ldp_scan_);
     last_icp_time_ = cloud->header.stamp;
     last_imu_yaw_ = latest_imu_yaw_;
     last_odom_ = latest_odom_;
     initialized_ = true;
+  }
+
+  // get the non-static tf from base to laser
+  if (!getBaseToLaserTf(cloud->header.frame_id, cloud->header.stamp))
+  {
+    ROS_WARN("ScanMatcher: Skipping scan");
+    return;
   }
 
   LDP curr_ldp_scan;
@@ -341,8 +342,9 @@ void LaserScanMatcher::scanCallback (const sensor_msgs::LaserScan::ConstPtr& sca
   {
     createCache(scan_msg);    // caches the sin and cos of all angles
 
+    ros::Time t = ros::Time::now();
     // cache the static tf from base to laser
-    if (!getBaseToLaserTf(scan_msg->header.frame_id))
+    if (!getBaseToLaserTf(scan_msg->header.frame_id, t))
     {
       ROS_WARN("ScanMatcher: Skipping scan");
       return;
@@ -480,13 +482,17 @@ void LaserScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time)
       dpose_msg->pose.theta = getYawFromQuaternion(corr_ch.getRotation());
       dpose_msg->begin.data = last_icp_time_;
       dpose_msg->end.data = new_icp_time;
-	  for(int i=0;i<9; i++){
-	      if(input_.do_compute_covariance){
-			  dpose_msg->error[i] = gsl_matrix_get(output_.cov_x_m, i%3, (int)(i/3) );
-	      }else{
-	    	  dpose_msg->error[i] = 0;
-	      }
-	  }
+      for (int i = 0; i < 9; i++)
+      {
+        if (input_.do_compute_covariance)
+        {
+          dpose_msg->error[i] = gsl_matrix_get(output_.cov_x_m, i % 3, (int)(i / 3));
+        }
+        else
+        {
+          dpose_msg->error[i] = 0;
+        }
+      }
       dpose_publisher_.publish(dpose_msg);
     }
 
@@ -501,7 +507,10 @@ void LaserScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time)
     }
     if (publish_tf_)
     {
-      tf::StampedTransform transform_msg (w2b_, time, fixed_frame_, base_frame_);
+      btTransform w2b_3d_;
+      w2b_3d_.setIdentity();
+      w2b_3d_ = w2b_ * laser_to_base_;
+      tf::StampedTransform transform_msg (w2b_3d_, time, fixed_frame_, base_frame_);
       tf_broadcaster_.sendTransform (transform_msg);
     }
     if (publish_marker_)
@@ -668,15 +677,13 @@ void LaserScanMatcher::createCache (const sensor_msgs::LaserScan::ConstPtr& scan
   input_.max_reading = scan_msg->range_max;
 }
 
-bool LaserScanMatcher::getBaseToLaserTf (const std::string& frame_id)
+bool LaserScanMatcher::getBaseToLaserTf(const std::string& frame_id, const ros::Time& t)
 {
-  ros::Time t = ros::Time::now();
-
   tf::StampedTransform base_to_laser_tf;
   try
   {
     tf_listener_.waitForTransform(
-      base_frame_, frame_id, t, ros::Duration(1.0));
+      base_frame_, frame_id, t, ros::Duration(0.5));
     tf_listener_.lookupTransform (
       base_frame_, frame_id, t, base_to_laser_tf);
   }
@@ -696,7 +703,7 @@ bool LaserScanMatcher::getBaseToLaserTf (const std::string& frame_id)
 void LaserScanMatcher::getPrediction(double& pr_ch_x, double& pr_ch_y,
                                      double& pr_ch_a, double dt)
 {
-  boost::mutex::scoped_lock(mutex_);
+  boost::mutex::scoped_lock lock(mutex_);
 
   // **** base case - no input available, use zero-motion model
   pr_ch_x = 0.0;
