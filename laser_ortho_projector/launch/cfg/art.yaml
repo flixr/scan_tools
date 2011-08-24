@@ -1,0 +1,4 @@
+fixed_frame: "world"
+base_frame: "pelican"
+use_imu: false
+publish_tf: true
