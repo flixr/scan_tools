@@ -126,6 +126,7 @@ class LaserScanMatcher
     bool use_imu_;
     bool use_odom_;
     bool use_alpha_beta_;
+    bool use_tf_;
 
     double alpha_;
     double beta_;
@@ -156,6 +157,9 @@ class LaserScanMatcher
     nav_msgs::Odometry last_odom_;
     geometry_msgs::Pose2D latest_pose2d_;
 
+    tf::Transform world_to_base_;
+    tf::Transform last_world_to_base_;
+
     std::vector<double> a_cos_;
     std::vector<double> a_sin_;
 
@@ -180,9 +184,11 @@ class LaserScanMatcher
     void pose2dCallback (const geometry_msgs::Pose2D::ConstPtr& pose2d_msg);
 
     void createCache (const sensor_msgs::LaserScan::ConstPtr& scan_msg);
+    bool getWorldToBaseTf(const ros::Time& t);
     bool getBaseToLaserTf (const std::string& frame_id, const ros::Time& t);
     void initParams();
 
+    void getPredictionFromTf(double& pr_ch_x, double& pr_ch_y, double& pr_ch_a, const ros::Time& time);
     void getPrediction(double& pr_ch_x, double& pr_ch_y,
                        double& pr_ch_a, double dt);
 
