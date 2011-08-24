@@ -59,18 +59,18 @@ LaserOrthoProjector::LaserOrthoProjector (ros::NodeHandle nh, ros::NodeHandle nh
   // **** subscribe to laser scan messages
 
   scan_subscriber_ = nh_.subscribe(
-    scan_topic_, 10, &LaserOrthoProjector::scanCallback, this);
+    scan_topic_, 1, &LaserOrthoProjector::scanCallback, this);
 
   if (use_imu_)
   {
     imu_subscriber_ = nh_.subscribe(
-      imu_topic_, 10, &LaserOrthoProjector::imuCallback, this);
+      imu_topic_, 1, &LaserOrthoProjector::imuCallback, this);
   }
 
   // **** advertise orthogonal scan
 
   cloud_publisher_ = nh_.advertise<PointCloudT>(
-    cloud_topic_, 10);
+    cloud_topic_, 1);
 }
 
 LaserOrthoProjector::~LaserOrthoProjector ()
