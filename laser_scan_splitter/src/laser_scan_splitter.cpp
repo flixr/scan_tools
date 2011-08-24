@@ -73,14 +73,14 @@ LaserScanSplitter::LaserScanSplitter(ros::NodeHandle nh, ros::NodeHandle nh_priv
                   "LaserScanSplitter: Invalid parameters. Quitting.");
 
   // **** subscribe to laser scan messages
-  scan_subscriber_ = nh_.subscribe (scan_topic_, 100, &LaserScanSplitter::scanCallback, this);
+  scan_subscriber_ = nh_.subscribe (scan_topic_, 1, &LaserScanSplitter::scanCallback, this);
 
   // **** advertise topics
   for (unsigned int i = 0; i < published_scan_topics_.size (); i++)
   {
     scan_publishers_.push_back (ros::Publisher ());
     scan_publishers_[i] = 
-      nh_.advertise<sensor_msgs::LaserScan>(published_scan_topics_[i], 10);
+      nh_.advertise<sensor_msgs::LaserScan>(published_scan_topics_[i], 1);
   }
 }
 

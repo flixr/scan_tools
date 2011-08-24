@@ -112,7 +112,7 @@ LaserScanMatcher::LaserScanMatcher(ros::NodeHandle nh, ros::NodeHandle nh_privat
 
   if (publish_marker_)
   {
-    marker_pub_ = nh_.advertise<visualization_msgs::Marker> ("laser_odom_marker", 1);
+    marker_pub_ = nh_.advertise<visualization_msgs::Marker> ("laser_odom_marker", 5);
   }
 }
 
