@@ -150,20 +150,23 @@ void LaserScanMatcher::initParams()
   // 1) imu - [theta] from imu yaw angle - /odom topic
   // 2) odom - [x, y, theta] from wheel odometry - /imu topic
   // 3) alpha_beta - [x, y, theta] from simple tracking filter - no topic req.
-  // If more than one is enabled, priority is imu > odom > alpha_beta
+  // 4) tf - [x, y, theta] from fixed_frame to base_frame
+  // If more than one is enabled, priority is tf > imu > odom > alpha_beta
 
-  if (!nh_private_.getParam ("use_imu", use_imu_))
-    use_imu_ = true;
-  if (!nh_private_.getParam ("use_odom", use_odom_))
-    use_odom_ = true;
-  if (!nh_private_.getParam ("use_alpha_beta", use_alpha_beta_))
-    use_alpha_beta_ = false;
+  nh_private_.param("use_imu", use_imu_, true);
+  nh_private_.param("use_odom", use_odom_, true);
+  nh_private_.param("use_alpha_beta", use_alpha_beta_, false);
+  nh_private_.param("use_tf", use_tf_, false);
 
   // **** How to publish the output?
   // tf (fixed_frame->base_frame),
   // pose message (pose of base frame in the fixed frame)
 
   nh_private_.param("publish_tf", publish_tf_, true);
+  if (use_tf_ && publish_tf_) {
+    ROS_WARN("Cannot publish tf transform if it's used as input for prediction!");
+    publish_tf_ = false;
+  }
   nh_private_.param("publish_pose", publish_pose_, true);
   nh_private_.param("publish_dpose", publish_dpose_, true);
   nh_private_.param("publish_marker", publish_marker_, false);
@@ -434,16 +437,22 @@ void LaserScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time)
   ros::Duration dur = new_icp_time - last_icp_time_;
   double dt = dur.toSec();
 
+
   double pr_ch_x, pr_ch_y, pr_ch_a;
-  getPrediction(pr_ch_x, pr_ch_y, pr_ch_a, dt);
+  if (use_tf_)
+  {
+    getPredictionFromTf(pr_ch_x, pr_ch_y, pr_ch_a, time);
+  }
+  else
+  {
+    getPrediction(pr_ch_x, pr_ch_y, pr_ch_a, dt);
+  }
 
   // the predicted change of the laser's position, in the base frame
-
   tf::Transform pr_ch;
   createTfFromXYTheta(pr_ch_x, pr_ch_y, pr_ch_a, pr_ch);
 
   // the predicted change of the laser's position, in the laser frame
-
   tf::Transform pr_ch_l;
   pr_ch_l = laser_to_base_ * pr_ch * base_to_laser_;
 
@@ -733,6 +742,46 @@ bool LaserScanMatcher::getBaseToLaserTf(const std::string& frame_id, const ros::
   laser_to_base_ = base_to_laser_.inverse();
 
   return true;
+}
+
+bool LaserScanMatcher::getWorldToBaseTf(const ros::Time& t)
+{
+  tf::StampedTransform world_to_base_tf;
+
+  try
+  {
+    tf_listener_.waitForTransform(fixed_frame_, base_frame_, t, ros::Duration(0.5));
+    tf_listener_.lookupTransform(fixed_frame_, base_frame_, t, world_to_base_tf);
+  }
+  catch (tf::TransformException ex)
+  {
+    ROS_WARN("Could not get base transform (%s)", ex.what ());
+    return false;
+  }
+  world_to_base_ = world_to_base_tf;
+
+  return true;
+}
+
+void LaserScanMatcher::getPredictionFromTf(double& pr_ch_x, double& pr_ch_y, double& pr_ch_a, const ros::Time& time)
+{
+  if (getWorldToBaseTf(time))
+  {
+    btVector3 dpos = world_to_base_.getOrigin() - last_world_to_base_.getOrigin();
+    pr_ch_x = dpos.getX();
+    pr_ch_y = dpos.getY();
+
+    pr_ch_a = getYawFromQuaternion(world_to_base_.getRotation()) -
+              getYawFromQuaternion(last_world_to_base_.getRotation());
+
+    last_world_to_base_ = world_to_base_;
+  }
+  else
+  {
+    pr_ch_x = 0.;
+    pr_ch_y = 0.;
+    pr_ch_a = 0.;
+  }
 }
 
 // returns the predicted change in pose (in fixed frame)
