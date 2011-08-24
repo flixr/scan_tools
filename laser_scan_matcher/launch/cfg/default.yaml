@@ -1,0 +1,7 @@
+fixed_frame: "nav"
+base_frame: "pelican"
+use_imu: true
+publish_tf: false
+publish_marker: true
+use_cloud_input: true
+do_compute_covariance: 1
