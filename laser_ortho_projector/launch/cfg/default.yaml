@@ -1,4 +1,4 @@
 fixed_frame: "nav"
 base_frame: "pelican"
-use_imu: true
+use_imu: false
 publish_tf: true
