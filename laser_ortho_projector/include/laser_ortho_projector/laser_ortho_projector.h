@@ -81,6 +81,7 @@ class LaserOrthoProjector
     // **** state variables
 
     bool initialized_;
+    bool imu_valid_;
 
     std::vector<double> a_sin_;
     std::vector<double> a_cos_;
