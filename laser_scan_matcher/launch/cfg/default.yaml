@@ -1,6 +1,8 @@
 fixed_frame: "nav"
 base_frame: "pelican"
-use_imu: true
+use_imu: false
+use_odom: false
+use_tf: true
 publish_tf: false
 publish_marker: true
 use_cloud_input: true
