@@ -5,5 +5,8 @@ use_odom: false
 use_tf: true
 publish_tf: false
 publish_marker: true
+publish_pose: false
+publish_dpose: true
+init_pose2d: false
 use_cloud_input: true
 do_compute_covariance: 1
