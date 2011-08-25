@@ -1,4 +1,4 @@
-fixed_frame: "world"
+fixed_frame: "nav"
 base_frame: "pelican"
 use_imu: true
-publish_tf: false
+publish_tf: true

@@ -33,11 +33,13 @@ namespace scan_tools {
 
 LaserOrthoProjector::LaserOrthoProjector (ros::NodeHandle nh, ros::NodeHandle nh_private):
   nh_(nh),
-  nh_private_(nh_private)
+  nh_private_(nh_private),
+  initialized_(false),
+  imu_valid_(false)
 {
   ROS_INFO ("Starting LaserOrthoProjector");
 
-  initialized_ = false;
+
 
   nan_point_.x = std::numeric_limits<float>::quiet_NaN();
   nan_point_.y = std::numeric_limits<float>::quiet_NaN();
@@ -71,6 +73,7 @@ LaserOrthoProjector::LaserOrthoProjector (ros::NodeHandle nh, ros::NodeHandle nh
 
   cloud_publisher_ = nh_.advertise<PointCloudT>(
     cloud_topic_, 1);
+
 }
 
 LaserOrthoProjector::~LaserOrthoProjector ()
@@ -81,6 +84,7 @@ LaserOrthoProjector::~LaserOrthoProjector ()
 void LaserOrthoProjector::imuCallback (const sensor_msgs::Imu::ConstPtr& imu_msg)
 {
   latest_imu_msg_ = *imu_msg;
+  imu_valid_ = true;
 }
 
 void LaserOrthoProjector::scanCallback (const sensor_msgs::LaserScan::ConstPtr& scan_msg)
@@ -99,10 +103,15 @@ void LaserOrthoProjector::scanCallback (const sensor_msgs::LaserScan::ConstPtr& 
 
   if(use_imu_)
   {
-    world_to_base.setIdentity();
-    btQuaternion q;
-    tf::quaternionMsgToTF(latest_imu_msg_.orientation, q);
-    world_to_base.setRotation(q);
+    if(imu_valid_){
+      world_to_base.setIdentity();
+      btQuaternion q;
+      tf::quaternionMsgToTF(latest_imu_msg_.orientation, q);
+      world_to_base.setRotation(q);
+    }else{
+      ROS_WARN_STREAM("Orthoprojection not possible: no transformation from IMU.");
+      return;
+    }
   }
   else
   {
