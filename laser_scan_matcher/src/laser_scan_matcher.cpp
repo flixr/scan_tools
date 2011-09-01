@@ -768,8 +768,8 @@ void LaserScanMatcher::getPredictionFromTf(double& pr_ch_x, double& pr_ch_y, dou
   if (getWorldToBaseTf(time))
   {
     btVector3 dpos = world_to_base_.getOrigin() - last_world_to_base_.getOrigin();
-    pr_ch_x = dpos.getX();
-    pr_ch_y = dpos.getY();
+    pr_ch_x = 0; //dpos.getX();
+    pr_ch_y = 0; //dpos.getY();
 
     pr_ch_a = getYawFromQuaternion(world_to_base_.getRotation()) -
               getYawFromQuaternion(last_world_to_base_.getRotation());
