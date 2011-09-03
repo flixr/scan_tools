@@ -1,0 +1,17 @@
+<launch>
+
+	<!-- nodelet manager process -->
+  	<node pkg="nodelet" type="nodelet" name="laser_nodelet_manager" args="manager" output="screen"/>
+  	
+	<node pkg="nodelet" type="nodelet" name="laser_scan_matcher" output="screen"
+      args="load laser_scan_matcher/LaserScanMatcherNodelet laser_nodelet_manager">
+    	<param name="fixed_frame" value="world"/>
+    	<param name="base_frame"  value="pelican"/>
+    	<param name="use_imu" value="false"/>
+    	<param name="publish_tf" value="false"/>
+    	<param name="publish_marker" value="true"/>
+    	<param name="use_cloud_input" value="true"/>
+    	<remap from="cloud" to="cloud_ortho"/>
+  	</node>
+  	
+</launch>

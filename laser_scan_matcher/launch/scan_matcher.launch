@@ -1,0 +1,14 @@
+<launch>
+
+  <node pkg="laser_scan_matcher" type="laser_scan_matcher_node" name="laser_scan_matcher" output="screen">
+    <param name="fixed_frame" value="world"/>
+    <param name="base_frame"  value="pelican"/>
+    <param name="use_imu" value="false"/>
+    <param name="publish_tf" value="false"/>
+    <param name="publish_marker" value="true"/>
+    <param name="use_cloud_input" value="true"/>
+    <remap from="cloud" to="cloud_ortho"/>
+  </node>
+
+
+</launch>
