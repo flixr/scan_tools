@@ -52,10 +52,12 @@ class LaserScanSplitter
     std::vector<std::string> published_scan_topics_;
     std::vector<std::string> published_laser_frames_;
     std::vector<int> sizes_;
+    std::vector<int> skip_;
 
     // **** state variables
 
     unsigned int size_sum_;
+    std::vector<int> skip_counters_;
 
     // **** member functions
 
