@@ -32,7 +32,7 @@
 namespace scan_tools {
 
 LaserScanSplitter::LaserScanSplitter(ros::NodeHandle nh, ros::NodeHandle nh_private):
-  nh_(nh), 
+  nh_(nh),
   nh_private_(nh_private)
 {
   ROS_INFO ("Starting LaserScanSplitter");
@@ -42,6 +42,7 @@ LaserScanSplitter::LaserScanSplitter(ros::NodeHandle nh, ros::NodeHandle nh_priv
   std::string topics_string;
   std::string frames_string;
   std::string sizes_string;
+  std::string skip_string;
 
   if (!nh_private_.getParam ("topics", topics_string))
     topics_string = "scan1 scan2";
@@ -49,6 +50,8 @@ LaserScanSplitter::LaserScanSplitter(ros::NodeHandle nh, ros::NodeHandle nh_priv
     frames_string = "laser laser";
   if (!nh_private_.getParam ("sizes", sizes_string))
     sizes_string = "256 256";
+  if (!nh_private_.getParam ("skip", skip_string))
+    skip_string = "0 0";
 
   // **** tokenize inputs
   tokenize (topics_string, published_scan_topics_);
@@ -66,10 +69,20 @@ LaserScanSplitter::LaserScanSplitter(ros::NodeHandle nh, ros::NodeHandle nh_priv
     ROS_ASSERT_MSG ((sizes_[i] > 0), "LaserScanSplitter: Scan size cannot be zero. Quitting.");
   }
 
+  std::vector<std::string> skip_tokens;
+  tokenize(skip_string, skip_tokens);
+  for (unsigned int i = 0; i < skip_tokens.size(); i++)
+  {
+    skip_.push_back(atoi(skip_tokens[i].c_str()));
+    skip_counters_.push_back(0);
+    //ROS_ASSERT_MSG((skip_[i] < 0), "LaserScanSplitter: Number of scans to skip cannot be negative. Quitting.");
+  }
+
+
   // **** check that topic, frames, and sizes vectors have same sizes
 
   ROS_ASSERT_MSG ((published_scan_topics_.size () == published_laser_frames_.size ()) &&
-                  (sizes_.size () == published_laser_frames_.size ()),
+                  (sizes_.size () == published_laser_frames_.size ()) && (sizes_.size () == skip_.size()),
                   "LaserScanSplitter: Invalid parameters. Quitting.");
 
   // **** subscribe to laser scan messages
@@ -79,8 +92,9 @@ LaserScanSplitter::LaserScanSplitter(ros::NodeHandle nh, ros::NodeHandle nh_priv
   for (unsigned int i = 0; i < published_scan_topics_.size (); i++)
   {
     scan_publishers_.push_back (ros::Publisher ());
-    scan_publishers_[i] = 
-      nh_.advertise<sensor_msgs::LaserScan>(published_scan_topics_[i], 1);
+    // don't advertise scan segments with negative skip value (will never be published)
+    if(skip_[i] >= 0)
+      scan_publishers_[i] = nh_.advertise<sensor_msgs::LaserScan>(published_scan_topics_[i], 1);
   }
 }
 
@@ -102,31 +116,42 @@ void LaserScanSplitter::scanCallback (const sensor_msgs::LaserScanConstPtr & sca
   // **** copy information over
   int r = 0;
 
-  for (unsigned int i = 0; i < published_scan_topics_.size (); i++)
+  for (unsigned int i = 0; i < published_scan_topics_.size(); i++)
   {
-    sensor_msgs::LaserScan::Ptr scan_segment;
-    scan_segment = boost::make_shared<sensor_msgs::LaserScan>();
+    // if skip_[i] is negative we never publish this scan segment
+    // otherwise we skip publishing skip_[i] times
+    if (skip_[i] == skip_counters_[i])
+    {
+      sensor_msgs::LaserScan::Ptr scan_segment;
+      scan_segment = boost::make_shared<sensor_msgs::LaserScan>();
 
-    scan_segment->header = scan_msg->header;
-    scan_segment->range_min = scan_msg->range_min;
-    scan_segment->range_max = scan_msg->range_max;
-    scan_segment->angle_increment = scan_msg->angle_increment;
-    scan_segment->time_increment = scan_msg->time_increment;
-    scan_segment->scan_time = scan_msg->scan_time;
-    scan_segment->header.frame_id = published_laser_frames_[i];
+      scan_segment->header = scan_msg->header;
+      scan_segment->range_min = scan_msg->range_min;
+      scan_segment->range_max = scan_msg->range_max;
+      scan_segment->angle_increment = scan_msg->angle_increment;
+      scan_segment->time_increment = scan_msg->time_increment;
+      scan_segment->scan_time = scan_msg->scan_time;
+      scan_segment->header.frame_id = published_laser_frames_[i];
 
-    scan_segment->angle_min = 
-      scan_msg->angle_min + (scan_msg->angle_increment * r);
-    scan_segment->angle_max = 
-      scan_msg->angle_min + (scan_msg->angle_increment * (r + sizes_[i] - 1));
+      scan_segment->angle_min = scan_msg->angle_min + (scan_msg->angle_increment * r);
+      scan_segment->angle_max = scan_msg->angle_min + (scan_msg->angle_increment * (r + sizes_[i] - 1));
 
-    // TODO - also copy intensity values
+      // TODO - also copy intensity values
 
-    scan_segment->ranges.resize(sizes_[i]);
-    memcpy(&scan_segment->ranges[0], &scan_msg->ranges[r], sizes_[i]*4);
-    r+=sizes_[i];
+      scan_segment->ranges.resize(sizes_[i]);
+      memcpy(&scan_segment->ranges[0], &scan_msg->ranges[r], sizes_[i] * 4);
 
-    scan_publishers_[i].publish (scan_segment);
+      scan_publishers_[i].publish(scan_segment);
+
+      // reset skip counter
+      skip_counters_[i] = 0;
+    }
+    else if (skip_[i] > skip_counters_[i])
+    {
+      // we skip this scan and increment the counter
+      skip_counters_[i] += 1;
+    }
+    r += sizes_[i];
   }
 }
 
