@@ -35,7 +35,8 @@ LaserOrthoProjector::LaserOrthoProjector (ros::NodeHandle nh, ros::NodeHandle nh
   nh_(nh),
   nh_private_(nh_private),
   initialized_(false),
-  imu_valid_(false)
+  imu_valid_(false),
+  last_tf_valid_(true)
 {
   ROS_INFO ("Starting LaserOrthoProjector");
 
@@ -122,11 +123,17 @@ void LaserOrthoProjector::scanCallback (const sensor_msgs::LaserScan::ConstPtr& 
         world_frame_, base_frame_, scan_msg->header.stamp, ros::Duration(0.5));
       tf_listener_.lookupTransform (
         world_frame_, base_frame_, scan_msg->header.stamp, world_to_base_tf);
+      if (!last_tf_valid_)
+        ROS_INFO("LaserOrthoProjector: got tf transform again...");
+      last_tf_valid_ = true;
     }
     catch (tf::TransformException ex)
     {
       // transform unavailable - skip scan
-      ROS_WARN ("Skipping scan (%s)", ex.what ());
+      // only complain once
+      if(last_tf_valid_)
+        ROS_WARN("Skipping scan (%s)", ex.what ());
+      last_tf_valid_ = false;
       return;
     }
     world_to_base = world_to_base_tf;
