@@ -61,9 +61,9 @@ class NCDParser
 
     tf::TransformBroadcaster tfBroadcaster_;
 
-    btTransform worldToOdom_;
-    btTransform odomToLeftLaser_;
-    btTransform odomToRightLaser_;
+    tf::Transform worldToOdom_;
+    tf::Transform odomToLeftLaser_;
+    tf::Transform odomToRightLaser_;
 
     void publishLaserMessage(const std::vector<std::string>& tokens,
                              const std::string& laserFrame,

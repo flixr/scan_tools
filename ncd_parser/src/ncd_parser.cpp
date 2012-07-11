@@ -186,11 +186,11 @@ void NCDParser::publishTfMessages(const std::vector<std::string>& tokens)
   // extract Roll
   double roll = extractValue(tokens[3], "Roll=");
 
-  btQuaternion rotation;
+  tf::Quaternion rotation;
   rotation.setRPY (roll, pitch, theta);
   worldToOdom_.setRotation (rotation);
 
-  btVector3 origin;
+  tf::Vector3 origin;
   origin.setValue (x, y, z);
   worldToOdom_.setOrigin (origin);
 
@@ -255,11 +255,11 @@ void NCDParser::createOdomToLeftLaserTf()
   double pitch =  90.0 * DEG_TO_RAD;
   double yaw   =  -90.0 * DEG_TO_RAD;
 
-  btQuaternion rotation;
+  tf::Quaternion rotation;
   rotation.setRPY (roll, pitch, yaw);
   odomToLeftLaser_.setRotation (rotation);
 
-  btVector3 origin;
+  tf::Vector3 origin;
   origin.setValue (x, y, z);
   odomToLeftLaser_.setOrigin (origin);
 }
@@ -273,11 +273,11 @@ void NCDParser::createOdomToRightLaserTf()
   double pitch =  -90.0 * DEG_TO_RAD;
   double yaw   =  180.0 * DEG_TO_RAD;
 
-  btQuaternion rotation;
+  tf::Quaternion rotation;
   rotation.setRPY (roll, pitch, yaw);
   odomToRightLaser_.setRotation (rotation);
 
-  btVector3 origin;
+  tf::Vector3 origin;
   origin.setValue (x, y, z);
   odomToRightLaser_.setOrigin (origin);
 }

@@ -100,13 +100,13 @@ void LaserOrthoProjector::scanCallback (const sensor_msgs::LaserScan::ConstPtr& 
 
   // **** obtain transform between fixed and base frame
 
-  btTransform world_to_base;
+  tf::Transform world_to_base;
 
   if(use_imu_)
   {
     if(imu_valid_){
       world_to_base.setIdentity();
-      btQuaternion q;
+      tf::Quaternion q;
       tf::quaternionMsgToTF(latest_imu_msg_.orientation, q);
       world_to_base.setRotation(q);
     }else{
@@ -141,20 +141,20 @@ void LaserOrthoProjector::scanCallback (const sensor_msgs::LaserScan::ConstPtr& 
   }
 
   double roll, pitch, yaw;
-  btMatrix3x3 m(world_to_base.getRotation());
+  tf::Matrix3x3 m(world_to_base.getRotation());
   m.getRPY(roll, pitch, yaw);
 
 
   // **** calculate and publish transform between world and ortho frames
-  btTransform base_to_ortho;
+  tf::Transform base_to_ortho;
 
-  btQuaternion rotation;
+  tf::Quaternion rotation;
   // we want the ortho frame to be fixed on the base
   // ortho projected into the plane, so only roll and pitch
   rotation.setRPY(roll, pitch, 0.0);
   base_to_ortho.setRotation(rotation.inverse());
 
-  btVector3 origin;
+  tf::Vector3 origin;
   // we want the ortho frame to be fixed on the base, maybe set z though?
   origin.setValue (0.0,
                    0.0,
@@ -180,7 +180,7 @@ void LaserOrthoProjector::scanCallback (const sensor_msgs::LaserScan::ConstPtr& 
 
     if (r > scan_msg->range_min)
     {
-      btVector3 p(r * a_cos_[i], r * a_sin_[i], 0.0);
+      tf::Vector3 p(r * a_cos_[i], r * a_sin_[i], 0.0);
       p = base_to_ortho.inverse() * base_to_laser_ * p;
       p.setZ(0.0);
 

@@ -352,8 +352,8 @@ void LaserScanMatcher::cloudCallback (const PointCloudT::ConstPtr& cloud)
     }
 
     //use received pose2d to initialize
-    w2b_.setOrigin(btVector3(latest_pose2d_.x, latest_pose2d_.y, 0.0));
-    btQuaternion q;
+    w2b_.setOrigin(tf::Vector3(latest_pose2d_.x, latest_pose2d_.y, 0.0));
+    tf::Quaternion q;
     q.setRPY(0.0, 0.0, latest_pose2d_.theta);
     w2b_.setRotation(q);
     pose_initialized_ = true;
@@ -553,7 +553,7 @@ void LaserScanMatcher::processScan(LDP& curr_ldp_scan, const ros::Time& time)
     }
     if (publish_tf_)
     {
-      btTransform w2b_3d_;
+      tf::Transform w2b_3d_;
       w2b_3d_.setIdentity();
       w2b_3d_ = w2b_ * laser_to_base_;
       tf::StampedTransform transform_msg (w2b_3d_, time, fixed_frame_, base_frame_);
@@ -767,7 +767,7 @@ void LaserScanMatcher::getPredictionFromTf(double& pr_ch_x, double& pr_ch_y, dou
 {
   if (getWorldToBaseTf(time))
   {
-    btVector3 dpos = world_to_base_.getOrigin() - last_world_to_base_.getOrigin();
+    tf::Vector3 dpos = world_to_base_.getOrigin() - last_world_to_base_.getOrigin();
     pr_ch_x = 0; //dpos.getX();
     pr_ch_y = 0; //dpos.getY();
 
@@ -832,7 +832,7 @@ double LaserScanMatcher::getYawFromQuaternion(
   const tf::Quaternion& quaternion)
 {
   double temp, yaw;
-  btMatrix3x3 m(quaternion);
+  tf::Matrix3x3 m(quaternion);
   m.getRPY(temp, temp, yaw);
   return yaw;
 }
@@ -848,7 +848,7 @@ double LaserScanMatcher::getYawFromQuaternion(
 void LaserScanMatcher::createTfFromXYTheta(
   double x, double y, double theta, tf::Transform& t)
 {
-  t.setOrigin(btVector3(x, y, 0.0));
+  t.setOrigin(tf::Vector3(x, y, 0.0));
   tf::Quaternion q;
   q.setRPY(0.0, 0.0, theta);
   t.setRotation(q);
